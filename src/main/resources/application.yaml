@@ -1,0 +1,78 @@
+spring:
+  main:
+    allow-circular-references: true
+management:
+  endpoints:
+    web:
+      exposure:
+        include: 'health,prometheus'
+
+davincipctcoordinationplatform:
+  datasource:
+    url: 'jdbc:h2:file:./target/database/h2-davincipctcoordinationplatform'
+    username: sa
+    password: null
+    driverClassName: org.h2.Driver
+  # enforce_referential_integrity_on_delete: false
+  # enforce_referential_integrity_on_write: false
+  implementationguides:
+    hl_7_fhir_us_davinci_pct:
+      installMode: STORE_ONLY
+      packageUrl: https://build.fhir.org/ig/HL7/davinci-pct/package.tgz
+      name: hl7.fhir.us.davinci-pct
+      version: 2.0.0-ballot
+      fetchDependencies: false
+      reloadExisting: false
+
+# davincipctcoordinationrequester:
+#   datasource:
+#     url: 'jdbc:h2:file:./target/database/h2-davincipctcoordinationrequester'
+#     username: sa
+#     password: null
+#     driverClassName: org.h2.Driver
+#   # enforce_referential_integrity_on_delete: false
+#   # enforce_referential_integrity_on_write: false
+#   implementationguides:
+#     hl_7_fhir_us_davinci_pct:
+#       installMode: STORE_ONLY
+#       packageUrl: https://build.fhir.org/ig/HL7/davinci-pct/package.tgz
+#       name: hl7.fhir.us.davinci-pct
+#       version: 2.0.0-ballot
+#       fetchDependencies: false
+#       reloadExisting: false
+
+# davincipctgfecontributor:
+#   datasource:
+#     url: 'jdbc:h2:file:./target/database/h2-davincipctgfecontributor'
+#     username: sa
+#     password: null
+#     driverClassName: org.h2.Driver
+#   # enforce_referential_integrity_on_delete: false
+#   # enforce_referential_integrity_on_write: false
+#   implementationguides:
+#     hl_7_fhir_us_davinci_pct:
+#       installMode: STORE_ONLY
+#       packageUrl: https://build.fhir.org/ig/HL7/davinci-pct/package.tgz
+#       name: hl7.fhir.us.davinci-pct
+#       version: 2.0.0-ballot
+#       fetchDependencies: false
+#       reloadExisting: false
+
+# davincipct:
+#   datasource:
+#     url: 'jdbc:h2:file:./target/database/h2-davincipct'
+#     username: sa
+#     password: null
+#     driverClassName: org.h2.Driver
+#   # enforce_referential_integrity_on_delete: false
+#   # enforce_referential_integrity_on_write: false
+#   implementationguides:
+#     hl_7_fhir_us_davinci_pct:
+#       installMode: STORE_ONLY
+#       packageUrl: https://build.fhir.org/ig/HL7/davinci-pct/package.tgz
+#       name: hl7.fhir.us.davinci-pct
+#       version: 2.0.0-ballot
+#       fetchDependencies: false
+#       reloadExisting: false
+
+
