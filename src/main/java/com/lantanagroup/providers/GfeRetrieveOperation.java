@@ -36,11 +36,7 @@ import org.hl7.fhir.r4.model.Bundle.BundleType;
 
 /*
  * TODO Code
- *  Put Contributor task with Information Bundle,
- *     Extract bundle request information to put into GFE missing Bundle
- *  Create GFE Missing Bundles for all fo the Tasks without an output - Test with those that have an output
- * Create a Contributor Task with an encoded GFE Bundle
- *  Test the GFE Collection Bundle with the contributed GFE Bundle
+ *  Extract bundle request information to put into GFE missing Bundle (safely)
  *  Review the requirements of the IG
  * 
  * Later
@@ -143,7 +139,7 @@ public class GfeRetrieveOperation {
     Bundle collectionBundle = new Bundle();
     collectionBundle.setType(BundleType.COLLECTION);
     Identifier identifier = new Identifier();
-    // TODO, replace with server URL
+    
     identifier.setSystem(theRequestDetails.getFhirServerBase() + "/resourceIdentifiers");
     String uuid = UUID.randomUUID().toString();
     identifier.setValue(uuid);
@@ -189,7 +185,31 @@ public class GfeRetrieveOperation {
             collectionBundle.addEntry(resourceEntry);
             
           }
-          // TODO add Organization that has the type of payer (or that is related to the coverage resource)
+
+          /* Am alternative way to check for the payer organization and place in the bundle
+          if(entryResource.getResourceType() == ResourceType.Organization)
+          {
+            Organization theOrganization = (Organization)entryResource;
+            if(theOrganization.hasType())
+            {
+              // Check to see if there is an Organization.type with a code = pay
+              if(theOrganization.getType().stream().filter(type -> type.getCoding().stream().filter(coding -> coding.getCode().equals("pay")).findFirst().isPresent()).findFirst().isPresent())
+              {
+                // Copy payer organization
+                // TODO, this could be better, probably finding the Coverage.payer reference that matches
+                Bundle.BundleEntryComponent resourceEntry = new Bundle.BundleEntryComponent();
+                resourceEntry.setResource(theOrganization);
+                collectionBundle.addEntry(resourceEntry);
+              }
+            
+            } 
+            Bundle.BundleEntryComponent resourceEntry = new Bundle.BundleEntryComponent();
+            resourceEntry.setResource(entryResource);
+            collectionBundle.addEntry(resourceEntry);
+            
+          }
+           */
+          
         });    
       }
 
@@ -278,7 +298,7 @@ public class GfeRetrieveOperation {
       {
         task.getOutput().forEach(output -> {
           
-          // TODO Make more robust to get a matching bundle
+          // TODO Make more robust to get a matching bundle (Same for all bundles)
           if(output.getType().hasCoding("http://hl7.org/fhir/us/davinci-pct/CodeSystem/PCTTaskOutputTypeCSTemporaryTrialUse", "gfe-bundle"))
           {
             
@@ -311,7 +331,6 @@ public class GfeRetrieveOperation {
         Bundle missingBundle = new Bundle();
         missingBundle.setType(BundleType.COLLECTION);
         Identifier missingIdentifier = new Identifier();
-        // TODO, replace with server URL
         identifier.setSystem(theRequestDetails.getFhirServerBase() + "/resourceIdentifiers");
         String missingUuid = UUID.randomUUID().toString();
         identifier.setValue(missingUuid);
@@ -356,17 +375,8 @@ public class GfeRetrieveOperation {
   public DomainResource getEntityResourceByReference(Reference reference, RequestDetails theRequestDetails)
   {
     DomainResource retVal = null;
-    /*
-    Practitioner taskPractitioner = null;
-    PractitionerRole taskPractitionerRole = null;
-    Organization taskOrganization = null;*/
+
     try {
-      //reference.getType()
-      //theDomainResourceDao.read(reference.getReferenceElement(), theRequestDetails);
-      // TODO GetType = Null. Will need to extract somehow.
-      
-      //Reference.getResources(reference, theRequestDetails)
-      //String temp = reference.getReferenceElement().getResourceType();
       switch (reference.getReferenceElement().getResourceType()) {
         case "Practitioner":
           retVal = thePractitionerDao.read(reference.getReferenceElement(), theRequestDetails);
@@ -432,7 +442,7 @@ public class GfeRetrieveOperation {
     {
       String attachmentString = new String(theAttachment.getData(), StandardCharsets.UTF_8);
 
-      // TODO, currently expects a a bundle type only
+      // TODO, currently expects as a bundle type only
 
       if(theAttachment.hasContentType() && theAttachment.getContentType().equals("application/fhir+json"))
       {
