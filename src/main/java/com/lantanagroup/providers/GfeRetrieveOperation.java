@@ -42,6 +42,16 @@ import org.hl7.fhir.r4.model.Bundle.BundleType;
  * Later
  *  Don't assume there is the anticipated input and output bundles. and test
  * Configure to require referential integrity (can't have references that do not resolve)
+ * 
+ * Sample data (how to seed?)
+ *    Need phone book practitioner and organization resources
+ * 
+ * Interceptor for task write/update of status
+ * Task Status When deemed appropriate, the GFE Coordination Requester SHALL close the Task by updating the status to completed or cancelled (the choice of which depends on the intent of the requester) When the status of the 
+ *    GFE Coordination Task is updated, the Coordination Platform SHALL update the associated GFE Contributor Task statuses to match, except for those that have a status of cancelled, rejected, entered-in-error, failed, or completed`.
+ * Need an interceptor for the SERVER_PROCESSING_COMPLETED_NORMALLY PointCut looking to see if it was a Task where the status was updated (possible?) Or just make sure all contributor tasks are updated appropriately (Catch any exceptions)
+ * 
+ * GFE Contributors SHALL only be able to set their assigned Task.status to received, accepted, rejected, or completed.
  */
 
 /*
@@ -80,6 +90,7 @@ public class GfeRetrieveOperation {
     
     // If the task is not retrieveable, the upstream code will catch this call and provide a 404 with an operation Outcome noting that the Task is not known.
     Task requestTask = theTaskDao.read(theRequest.getReferenceElement(), theRequestDetails);
+    
     
     
     
@@ -282,74 +293,79 @@ public class GfeRetrieveOperation {
     List<Task> contributorTasks = getContributorTasks(coordinationTask, theRequestDetails);
     contributorTasks.forEach(task -> {
       //boolean hasGFEBundle = false;
-      AtomicBoolean hasGFEBundle = new AtomicBoolean();
-      hasGFEBundle.set(false);
-      
-      //var hasBundleObject = new Object(){ boolean hasGFEBundle = false; };
-      
-
-      DomainResource taskOwner = null;
-      if(task.hasOwner())
+      // All of the FHIR Resources in .output.valueAttachment of the associated (that have a Task.partOf that references the GFE Coordination Task) 
+      //    GFE Contributor Task where the status is not rejected or cancelled (NOTE: that each Contributor Task may have multiple output.valueAttachment iterations.
+      if(task.getStatus() != Task.TaskStatus.REJECTED && task.getStatus() != Task.TaskStatus.CANCELLED)
       {
-        taskOwner = getEntityResourceByReference(task.getOwner(), theRequestDetails);
-      }
-
-      if(task.hasOutput())
-      {
-        task.getOutput().forEach(output -> {
-          
-          // TODO Make more robust to get a matching bundle (Same for all bundles)
-          if(output.getType().hasCoding("http://hl7.org/fhir/us/davinci-pct/CodeSystem/PCTTaskOutputTypeCSTemporaryTrialUse", "gfe-bundle"))
-          {
-            
-            hasGFEBundle.set(true);
-          }
-        });
-      }
-      if(hasGFEBundle.get())
-      {
+        AtomicBoolean hasGFEBundle = new AtomicBoolean();
+        hasGFEBundle.set(false);
         
+        //var hasBundleObject = new Object(){ boolean hasGFEBundle = false; };
+        
+
+        DomainResource taskOwner = null;
+        if(task.hasOwner())
+        {
+          taskOwner = getEntityResourceByReference(task.getOwner(), theRequestDetails);
+        }
+
         if(task.hasOutput())
         {
-          Bundle gfeBundle = getAttachedOutputBundle(task.getOutput());
-          if(gfeBundle != null)
-          {
-            Bundle.BundleEntryComponent gfeBundleEntry = new Bundle.BundleEntryComponent();
-            gfeBundleEntry.setResource(gfeBundle);
-            collectionBundle.addEntry(gfeBundleEntry);
-          }
-          else
-          {
-            hasGFEBundle.set(false);
-          }
+          task.getOutput().forEach(output -> {
+            
+            // TODO Make more robust to get a matching bundle (Same for all bundles)
+            if(output.getType().hasCoding("http://hl7.org/fhir/us/davinci-pct/CodeSystem/PCTTaskOutputTypeCSTemporaryTrialUse", "gfe-bundle"))
+            {
+              
+              hasGFEBundle.set(true);
+            }
+          });
         }
-        
-      }
-      if(!hasGFEBundle.get())
-      {
-        // create a GFE Missing Bundle
-        Bundle missingBundle = new Bundle();
-        missingBundle.setType(BundleType.COLLECTION);
-        Identifier missingIdentifier = new Identifier();
-        identifier.setSystem(theRequestDetails.getFhirServerBase() + "/resourceIdentifiers");
-        String missingUuid = UUID.randomUUID().toString();
-        identifier.setValue(missingUuid);
-        missingBundle.setIdentifier(missingIdentifier);
-        missingBundle.setTimestamp(new Date());
-        if(taskOwner != null)
+        if(hasGFEBundle.get())
         {
-          Bundle.BundleEntryComponent taskOwnerEntry = new Bundle.BundleEntryComponent();
-          taskOwnerEntry.setResource(taskOwner);
-          missingBundle.addEntry(taskOwnerEntry);
+          
+          if(task.hasOutput())
+          {
+            Bundle gfeBundle = getAttachedOutputBundle(task.getOutput());
+            if(gfeBundle != null)
+            {
+              Bundle.BundleEntryComponent gfeBundleEntry = new Bundle.BundleEntryComponent();
+              gfeBundleEntry.setResource(gfeBundle);
+              collectionBundle.addEntry(gfeBundleEntry);
+            }
+            else
+            {
+              hasGFEBundle.set(false);
+            }
+          }
+          
         }
-        copyResouceList.forEach(copyResource -> {
-          Bundle.BundleEntryComponent copyEntry = new Bundle.BundleEntryComponent();
-          copyEntry.setResource(copyResource);
-          missingBundle.addEntry(copyEntry);
-        });
-        Bundle.BundleEntryComponent missingBundleEntry = new Bundle.BundleEntryComponent();
-        missingBundleEntry.setResource(missingBundle);
-        collectionBundle.addEntry(missingBundleEntry);
+        if(!hasGFEBundle.get())
+        {
+          // create a GFE Missing Bundle
+          Bundle missingBundle = new Bundle();
+          missingBundle.setType(BundleType.COLLECTION);
+          Identifier missingIdentifier = new Identifier();
+          identifier.setSystem(theRequestDetails.getFhirServerBase() + "/resourceIdentifiers");
+          String missingUuid = UUID.randomUUID().toString();
+          identifier.setValue(missingUuid);
+          missingBundle.setIdentifier(missingIdentifier);
+          missingBundle.setTimestamp(new Date());
+          if(taskOwner != null)
+          {
+            Bundle.BundleEntryComponent taskOwnerEntry = new Bundle.BundleEntryComponent();
+            taskOwnerEntry.setResource(taskOwner);
+            missingBundle.addEntry(taskOwnerEntry);
+          }
+          copyResouceList.forEach(copyResource -> {
+            Bundle.BundleEntryComponent copyEntry = new Bundle.BundleEntryComponent();
+            copyEntry.setResource(copyResource);
+            missingBundle.addEntry(copyEntry);
+          });
+          Bundle.BundleEntryComponent missingBundleEntry = new Bundle.BundleEntryComponent();
+          missingBundleEntry.setResource(missingBundle);
+          collectionBundle.addEntry(missingBundleEntry);
+        }
       }
     }
     );

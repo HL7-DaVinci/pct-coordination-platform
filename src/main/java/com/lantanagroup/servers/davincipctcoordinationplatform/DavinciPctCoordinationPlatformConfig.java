@@ -13,6 +13,7 @@ import org.springframework.context.annotation.Primary;
 import org.springframework.context.annotation.PropertySource;
 
 import com.lantanagroup.common.CapabilityStatementCustomizer;
+import com.lantanagroup.common.ProcessCustomizer;
 import com.lantanagroup.common.CommonConfig;
 import com.lantanagroup.providers.GfeRetrieveOperation;
 
@@ -65,6 +66,7 @@ public class DavinciPctCoordinationPlatformConfig extends CommonConfig {
 
     restfulServer.registerInterceptor(new ResponseHighlighterInterceptor());
     restfulServer.registerInterceptor(new CapabilityStatementCustomizer(restfulServer.getFhirContext(), "davincipctcoordinationplatform"));
+    restfulServer.registerInterceptor(new ProcessCustomizer(restfulServer.getFhirContext(), daoRegistry, "davincipctcoordinationplatform"));
 
     restfulServer.registerProviders(
         new GfeRetrieveOperation(restfulServer.getFhirContext(), daoRegistry)
