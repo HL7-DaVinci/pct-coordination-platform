@@ -17,7 +17,7 @@ davincipctcoordinationplatform:
   # enforce_referential_integrity_on_write: false
   implementationguides:
     hl_7_fhir_us_davinci_pct:
-      installMode: STORE_ONLY
+      installMode: STORE_AND_INSTALL
       packageUrl: https://build.fhir.org/ig/HL7/davinci-pct/package.tgz
       name: hl7.fhir.us.davinci-pct
       version: 2.0.0-ballot
@@ -34,7 +34,7 @@ davincipctcoordinationplatform:
 #   # enforce_referential_integrity_on_write: false
 #   implementationguides:
 #     hl_7_fhir_us_davinci_pct:
-#       installMode: STORE_ONLY
+#       installMode: STORE_AND_INSTALL
 #       packageUrl: https://build.fhir.org/ig/HL7/davinci-pct/package.tgz
 #       name: hl7.fhir.us.davinci-pct
 #       version: 2.0.0-ballot
@@ -51,7 +51,7 @@ davincipctcoordinationplatform:
 #   # enforce_referential_integrity_on_write: false
 #   implementationguides:
 #     hl_7_fhir_us_davinci_pct:
-#       installMode: STORE_ONLY
+#       installMode: STORE_AND_INSTALL
 #       packageUrl: https://build.fhir.org/ig/HL7/davinci-pct/package.tgz
 #       name: hl7.fhir.us.davinci-pct
 #       version: 2.0.0-ballot
@@ -68,7 +68,7 @@ davincipctcoordinationplatform:
 #   # enforce_referential_integrity_on_write: false
 #   implementationguides:
 #     hl_7_fhir_us_davinci_pct:
-#       installMode: STORE_ONLY
+#       installMode: STORE_AND_INSTALL
 #       packageUrl: https://build.fhir.org/ig/HL7/davinci-pct/package.tgz
 #       name: hl7.fhir.us.davinci-pct
 #       version: 2.0.0-ballot
