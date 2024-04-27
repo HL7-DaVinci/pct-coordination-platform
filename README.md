@@ -12,3 +12,10 @@ mvn spring-boot:run
 mvnDebug spring-boot:run
 
 Need to run in wsl terminal as windows has a file length issue
+
+
+Running in Docker
+
+```
+docker compose up
+```

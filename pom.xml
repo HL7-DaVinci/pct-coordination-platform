@@ -14,7 +14,7 @@
 	<version>0.0.1-SNAPSHOT</version>
 	<packaging>war</packaging>
 	<name>reference-implementation</name>
-	<description>PCT Coordination Platform</description>
+	<description>PCT Coordination Platform RI</description>
 	<properties>
 		<java.version>11</java.version>
 		<hapi.version>7.0.2</hapi.version>

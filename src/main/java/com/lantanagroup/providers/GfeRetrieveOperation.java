@@ -114,7 +114,7 @@ public class GfeRetrieveOperation {
       //theServletResponse.getWriter()
       //theServletResponse.getWriter().close();
       //return null;
-      //throw new InvalidRequestException("Invalid Task type. Task reference must be to a Task where Task.code = 'gfe-coordination-task'. " + codeFoundString);
+      throw new InvalidRequestException("Invalid Task type. Task reference must be to a Task where Task.code = 'gfe-coordination-task'. " + codeFoundString);
       //theResponseDetails.setResponseCode(512);
 
     }
@@ -131,7 +131,7 @@ public class GfeRetrieveOperation {
 
 		return retVal.getAllResources();
      */
-    throw new InternalErrorException("Unaddressed internal error on gfe-retrieve operation");
+    //throw new InternalErrorException("Unaddressed internal error on gfe-retrieve operation");
     
     // Bundle retVal = new Bundle();
     // return retVal;

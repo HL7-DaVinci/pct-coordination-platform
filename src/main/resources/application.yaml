@@ -12,7 +12,11 @@ davincipctcoordinationplatform:
     url: 'jdbc:h2:file:./target/database/h2-davincipctcoordinationplatform'
     username: sa
     password: null
-    driverClassName: org.h2.Driver
+  cors:
+    allow_Credentials: true
+    # These are allowed_origin patterns, see: https://docs.spring.io/spring-framework/docs/current/javadoc-api/org/springframework/web/cors/CorsConfiguration.html#setAllowedOriginPatterns-java.util.List-
+    allowed_origin:
+      - '*'
   # enforce_referential_integrity_on_delete: false
   # enforce_referential_integrity_on_write: false
   implementationguides:

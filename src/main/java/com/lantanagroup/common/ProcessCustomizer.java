@@ -57,7 +57,7 @@ public class ProcessCustomizer {
         }
         if(theRequestDetails.getRequestType() == RequestTypeEnum.POST || theRequestDetails.getRequestType() == RequestTypeEnum.PUT || theRequestDetails.getRequestType() == RequestTypeEnum.PATCH)
         {
-            if(theRequestDetails.getResourceName().equals("Task"))
+            if(theRequestDetails.getResource() != null && theRequestDetails.getResourceName().equals("Task"))
             {
                 Task existingTask = null;
                 try{
