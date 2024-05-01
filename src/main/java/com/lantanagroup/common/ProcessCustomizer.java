@@ -7,6 +7,9 @@ import java.util.ArrayList;
 import org.hl7.fhir.instance.model.api.IBaseConformance;
 import org.springframework.core.io.DefaultResourceLoader;
 import org.springframework.core.io.Resource;
+import org.springframework.core.io.support.PathMatchingResourcePatternResolver;
+import org.springframework.core.io.support.ResourcePatternResolver;
+
 import jakarta.servlet.http.HttpServletRequest;
 
 import ca.uhn.fhir.rest.server.exceptions.ForbiddenOperationException;
@@ -18,6 +21,7 @@ import ca.uhn.fhir.context.FhirContext;
 import ca.uhn.fhir.interceptor.api.Hook;
 import ca.uhn.fhir.interceptor.api.Interceptor;
 import ca.uhn.fhir.interceptor.api.Pointcut;
+import ca.uhn.fhir.parser.IParser;
 import org.hl7.fhir.r4.model.*;
 
 import ca.uhn.fhir.jpa.searchparam.SearchParameterMap;
@@ -34,13 +38,19 @@ public class ProcessCustomizer {
   protected DaoRegistry theDaoRegistry;
   protected IFhirResourceDao<Task> theTaskDao;
   protected String key;
+  private boolean dataLoaded;
+  private IParser jparser;
 
   public ProcessCustomizer(FhirContext fhirContext, DaoRegistry theDaoRegistry, String key) {
+    dataLoaded = false;
     this.fhirContext = fhirContext;
     this.theDaoRegistry = theDaoRegistry;
     this.key = key;
 
     theTaskDao = this.theDaoRegistry.getResourceDao(Task.class);
+
+    jparser = fhirContext.newJsonParser();
+    jparser.setPrettyPrint(true);
   }
 
   
@@ -49,6 +59,41 @@ public class ProcessCustomizer {
   public void customizeProcessIncomingRequest(RequestDetails theRequestDetails, HttpServletRequest theServletRequest) {
     if(theRequestDetails != null)
     {
+        if (!dataLoaded) {
+            dataLoaded = true;
+            logger.info("First request made to Server");
+            logger.info("Loading all data");
+
+            for (String filename : getServerResources("ri_resources", "Organization-*.json")) {
+                try {
+                    System.out.println("Uploading resource " + filename);
+                    theDaoRegistry.getResourceDao(Organization.class).update(
+                            jparser.parseResource(Organization.class, util.loadResource(filename)), theRequestDetails);
+                } catch (Exception e) {
+                    System.out.println("Failure to update the Organization: " + e.getMessage());
+                }
+            }
+
+            for (String filename : getServerResources("ri_resources", "Practitioner-*.json")) {
+                try {
+                    System.out.println("Uploading resource " + filename);
+                    theDaoRegistry.getResourceDao(Practitioner.class).update(
+                            jparser.parseResource(Practitioner.class, util.loadResource(filename)), theRequestDetails);
+                } catch (Exception e) {
+                    System.out.println("Failure to update the Practitioner: " + e.getMessage());
+                }
+            }
+            for (String filename : getServerResources("ri_resources", "PractitionerRole-*.json")) {
+                try {
+                    System.out.println("Uploading resource " + filename);
+                    theDaoRegistry.getResourceDao(PractitionerRole.class).update(
+                            jparser.parseResource(PractitionerRole.class, util.loadResource(filename)),
+                            theRequestDetails);
+                } catch (Exception e) {
+                    System.out.println("Failure to update the PractitionerRole: " + e.getMessage());
+                }
+            }
+        }
         // if overriding requirement rules, just skip
         
         if(theServletRequest != null && theServletRequest.getHeader("X-Override") != null && theServletRequest.getHeader("X-Override").equalsIgnoreCase("true"))
@@ -177,5 +222,32 @@ public class ProcessCustomizer {
 
     return contributorTasks;
   }
+
+  public List<String> getServerResources(String path, String pattern) {
+        List<String> files = new ArrayList<>();
+
+        String localPath = path;
+        if (!localPath.substring(localPath.length() - 1, localPath.length() - 1).equals("/")) {
+            localPath = localPath + "/";
+        }
+
+        try {
+
+            ClassLoader cl = this.getClass().getClassLoader();
+            ResourcePatternResolver resolver = new PathMatchingResourcePatternResolver(cl);
+
+            org.springframework.core.io.Resource[] resources = resolver
+                    .getResources("classpath*:" + localPath + pattern);
+
+            for (org.springframework.core.io.Resource resource : resources) {
+                files.add(localPath + resource.getFilename());
+                logger.info(localPath + resource.getFilename());
+            }
+        } catch (Exception e) {
+            logger.info("Error retrieving file names from " + localPath + pattern);
+        }
+
+        return files;
+    }
 
 }
