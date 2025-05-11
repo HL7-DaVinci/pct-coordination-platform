@@ -13,8 +13,8 @@ davincipctcoordinationplatform:
     username: sa
     password: null
     driverClassName: org.h2.Driver
-    
-  # allow_external_references: true
+
+  allow_external_references: true
     
   cors:
     allow_Credentials: true
