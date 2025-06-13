@@ -149,6 +149,9 @@ public class GfeRetrieveOperation {
   public Bundle createCollectionBundle(Task coordinationTask, RequestDetails theRequestDetails) {
     Bundle collectionBundle = new Bundle();
     collectionBundle.setType(BundleType.COLLECTION);
+    Meta collection_bundle_meta = new Meta();
+    collection_bundle_meta.addProfile("http://hl7.org/fhir/us/davinci-pct/StructureDefinition/davinci-pct-gfe-collection-bundle");
+    collectionBundle.setMeta(collection_bundle_meta);
     Identifier identifier = new Identifier();
     
     identifier.setSystem(theRequestDetails.getFhirServerBase() + "/resourceIdentifiers");
@@ -345,6 +348,9 @@ public class GfeRetrieveOperation {
           // create a GFE Missing Bundle
           Bundle missingBundle = new Bundle();
           missingBundle.setType(BundleType.COLLECTION);
+          Meta missing_bundle_meta = new Meta();
+          missing_bundle_meta.addProfile("http://hl7.org/fhir/us/davinci-pct/StructureDefinition/davinci-pct-gfe-missing-bundle");
+          missingBundle.setMeta(missing_bundle_meta);
           Identifier missingIdentifier = new Identifier();
           identifier.setSystem(theRequestDetails.getFhirServerBase() + "/resourceIdentifiers");
           String missingUuid = UUID.randomUUID().toString();
