@@ -237,6 +237,10 @@ public class ProcessCustomizer {
             OperationOutcome operation = (OperationOutcome)operationOutcome;
             if( operation.hasIssue() ){
                 for(OperationOutcome.OperationOutcomeIssueComponent issue : operation.getIssue()){
+                    if (issue.hasDiagnostics() && issue.getDiagnostics().contains("Resource "+theRequestDetails.getId()+" is not known")) {
+                        // Do nothing for Task not found
+                        return;
+                    }
                     if(issue.hasDiagnostics()){
                         message = issue.getDiagnostics().toString();
                     }

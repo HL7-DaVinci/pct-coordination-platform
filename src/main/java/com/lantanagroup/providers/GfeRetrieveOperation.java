@@ -1,21 +1,13 @@
 package com.lantanagroup.providers;
 
-import jakarta.servlet.http.HttpServletResponse;
-import java.util.Date;
-//import java.util.Random;
-import java.util.List;
-import java.util.ArrayList;
-import java.util.UUID;
+import ca.uhn.fhir.rest.annotation.IdParam;
+import java.util.*;
 import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.Base64;
 import java.nio.charset.StandardCharsets;
 
 import ca.uhn.fhir.rest.annotation.Operation;
-import ca.uhn.fhir.rest.annotation.OperationParam;
 import ca.uhn.fhir.jpa.searchparam.SearchParameterMap;
-import ca.uhn.fhir.rest.server.exceptions.NotImplementedOperationException;
 import ca.uhn.fhir.rest.server.exceptions.InvalidRequestException;
-import ca.uhn.fhir.rest.server.exceptions.InternalErrorException;
 
 
 // Need to add to code generation
@@ -25,7 +17,6 @@ import ca.uhn.fhir.jpa.api.dao.DaoRegistry;
 import org.hl7.fhir.r4.model.*;
 import org.hl7.fhir.instance.model.api.*;
 import ca.uhn.fhir.rest.api.server.RequestDetails;
-import ca.uhn.fhir.rest.api.server.ResponseDetails;
 import ca.uhn.fhir.rest.api.server.IBundleProvider;
 import ca.uhn.fhir.rest.param.*;
 import ca.uhn.fhir.parser.IParser;
@@ -63,6 +54,9 @@ import org.hl7.fhir.r4.model.Bundle.BundleType;
  */
 
 public class GfeRetrieveOperation {
+
+  private static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(GfeRetrieveOperation.class);
+
   private FhirContext theFhirContext;
   //private DaoRegistry daoRegistry;
   private IFhirResourceDao<Task> theTaskDao;
@@ -80,24 +74,18 @@ public class GfeRetrieveOperation {
   }
 
 
-  @Operation(name = "$gfe-retrieve")
+  @Operation(name = "$gfe-retrieve" , type = Task.class)
   public Bundle gfeRetrieve(
-    @OperationParam(name = "request", min = 1, max = 1, type = Reference.class) Reference theRequest,
-    RequestDetails theRequestDetails,
-    HttpServletResponse theServletResponse
-  ) {
-  
-    
+    @IdParam IIdType theId,
+    RequestDetails theRequestDetails) throws Exception {
+
     // If the task is not retrieveable, the upstream code will catch this call and provide a 404 with an operation Outcome noting that the Task is not known.
-    Task requestTask = theTaskDao.read(theRequest.getReferenceElement(), theRequestDetails);
-    
-    
-    
-    
+    Task requestTask = theTaskDao.read(theId, theRequestDetails);
+
     // The Task needs to be a gfe-coordination-task, Check the Task Code and verify it is the correct type, and if not, reject
     if(requestTask.hasCode() && requestTask.getCode().hasCoding("http://hl7.org/fhir/us/davinci-pct/CodeSystem/PCTGFERequestTaskCSTemporaryTrialUse", "gfe-coordination-task"))
     {
-      Bundle responseBundle = createCollectionBundle(requestTask, theRequestDetails);
+      Bundle responseBundle = createPacketBundle(requestTask, theRequestDetails);
       //theServletResponse.setStatus(201);
       //IdType id = new IdType("Patient", theId);
       return responseBundle;
@@ -135,7 +123,7 @@ public class GfeRetrieveOperation {
     
     // Bundle retVal = new Bundle();
     // return retVal;
-    
+
   }
 
 
@@ -146,19 +134,19 @@ public class GfeRetrieveOperation {
    * 
    * @return the new bundle
    */
-  public Bundle createCollectionBundle(Task coordinationTask, RequestDetails theRequestDetails) {
-    Bundle collectionBundle = new Bundle();
-    collectionBundle.setType(BundleType.COLLECTION);
-    Meta collection_bundle_meta = new Meta();
-    collection_bundle_meta.addProfile("http://hl7.org/fhir/us/davinci-pct/StructureDefinition/davinci-pct-gfe-collection-bundle");
-    collectionBundle.setMeta(collection_bundle_meta);
+  public Bundle createPacketBundle(Task coordinationTask, RequestDetails theRequestDetails) {
+    Bundle packetBundle = new Bundle();
+    packetBundle.setType(BundleType.DOCUMENT);
+    Meta packet_bundle_meta = new Meta();
+    packet_bundle_meta.addProfile("http://hl7.org/fhir/us/davinci-pct/StructureDefinition/davinci-pct-gfe-packet");
+    packetBundle.setMeta(packet_bundle_meta);
     Identifier identifier = new Identifier();
     
     identifier.setSystem(theRequestDetails.getFhirServerBase() + "/resourceIdentifiers");
     String uuid = UUID.randomUUID().toString();
     identifier.setValue(uuid);
-    collectionBundle.setIdentifier(identifier);
-    collectionBundle.setTimestamp(new Date());
+    packetBundle.setIdentifier(identifier);
+    packetBundle.setTimestamp(new Date());
 
     Patient patient = null;
     Coverage coverage = null;
@@ -196,7 +184,7 @@ public class GfeRetrieveOperation {
           {
             Bundle.BundleEntryComponent resourceEntry = new Bundle.BundleEntryComponent();
             resourceEntry.setResource(entryResource);
-            collectionBundle.addEntry(resourceEntry);
+            packetBundle.addEntry(resourceEntry);
             
           }
 
@@ -235,7 +223,7 @@ public class GfeRetrieveOperation {
         {
           Bundle.BundleEntryComponent taskRequesterEntry = new Bundle.BundleEntryComponent();
           taskRequesterEntry.setResource(taskRequester);
-          collectionBundle.addEntry(taskRequesterEntry);
+          packetBundle.addEntry(taskRequesterEntry);
         }
       }
       /*
@@ -334,7 +322,7 @@ public class GfeRetrieveOperation {
             {
               Bundle.BundleEntryComponent gfeBundleEntry = new Bundle.BundleEntryComponent();
               gfeBundleEntry.setResource(gfeBundle);
-              collectionBundle.addEntry(gfeBundleEntry);
+              packetBundle.addEntry(gfeBundleEntry);
             }
             else
             {
@@ -370,12 +358,121 @@ public class GfeRetrieveOperation {
           });
           Bundle.BundleEntryComponent missingBundleEntry = new Bundle.BundleEntryComponent();
           missingBundleEntry.setResource(missingBundle);
-          collectionBundle.addEntry(missingBundleEntry);
+          packetBundle.addEntry(missingBundleEntry);
         }
       }
     }
     );
-    return collectionBundle;
+
+    logger.info("Adding GFE Composition to GFE Packet Bundle");
+    addGFECompositionToPacketBundle(packetBundle, theRequestDetails);
+
+    return packetBundle;
+  }
+
+  /**
+   * Create a single GFE Composition resource referencing all GFE Bundles in the packetBundle.
+   */
+  private void addGFECompositionToPacketBundle(Bundle packetBundle, RequestDetails theRequestDetails){
+    Composition gfeComposition = new Composition();
+    gfeComposition.setId("GFE-Comp-"+UUID.randomUUID().toString());
+    gfeComposition.getMeta().addProfile("http://hl7.org/fhir/us/davinci-pct/StructureDefinition/davinci-pct-gfe-composition");
+    // Add extensions (dummy gfeServiceLinkingInfo and requestOriginationType) // this has to be set from claim ?
+    Extension linkingInfo = new Extension();
+    linkingInfo.setUrl("http://hl7.org/fhir/us/davinci-pct/StructureDefinition/gfeServiceLinkingInfo");
+    Extension linkingIdentifierExt = new Extension();
+    linkingIdentifierExt.setUrl("linkingIdentifier");
+    linkingIdentifierExt.setValue(new StringType("223452-2342-2435-008002"));
+    linkingInfo.addExtension(linkingIdentifierExt);
+    gfeComposition.addExtension(linkingInfo);
+
+    Extension requestOrigType = new Extension()
+            .setUrl("http://hl7.org/fhir/us/davinci-pct/StructureDefinition/requestOriginationType")
+            .setValue(new CodeableConcept().addCoding(
+                    new Coding()
+                            .setSystem("http://hl7.org/fhir/us/davinci-pct/CodeSystem/PCTGFERequestTypeCSTemporaryTrialUse")
+                            .setCode("nonscheduled-request")
+            ));
+    gfeComposition.addExtension(requestOrigType);
+    // Add identifier
+    gfeComposition.setIdentifier(new Identifier()
+            .setSystem("http://www.example.org/identifiers/composition")
+            .setValue(UUID.randomUUID().toString())
+    );
+    gfeComposition.setStatus(Composition.CompositionStatus.FINAL);
+    gfeComposition.setType(new CodeableConcept().addCoding(
+            new Coding()
+                    .setSystem("http://hl7.org/fhir/us/davinci-pct/CodeSystem/PCTDocumentTypeTemporaryTrialUse")
+                    .setCode("gfe-packet")
+                    .setDisplay("GFE Packet")
+    ));
+    gfeComposition.addCategory(new CodeableConcept().addCoding(
+            new Coding()
+                    .setSystem("http://hl7.org/fhir/us/davinci-pct/CodeSystem/PCTDocumentTypeTemporaryTrialUse")
+                    .setCode("estimate")
+    ));
+
+    // Find all GFE Bundles in the packetBundle and reference them in the Composition
+    Set<String> uniqueAuthors = new HashSet<>();
+    boolean subjectSet = false;
+    for (Bundle.BundleEntryComponent entry : packetBundle.getEntry()) {
+      Resource resource = entry.getResource();
+      if (resource instanceof Bundle) {
+        Bundle bundle = (Bundle) resource;
+        if (bundle.hasMeta() && bundle.getMeta().hasProfile("http://hl7.org/fhir/us/davinci-pct/StructureDefinition/davinci-pct-gfe-bundle")
+                && !resource.getMeta().hasProfile("http://hl7.org/fhir/us/davinci-pct/StructureDefinition/davinci-pct-gfe-missing-bundle")) {
+          // Add GFE section for this bundle
+          Composition.SectionComponent gfeSection = new Composition.SectionComponent();
+          gfeSection.addEntry(new Reference("Bundle/" + bundle.getIdElement().getIdPart()));
+          gfeSection.setCode(new CodeableConcept().addCoding(
+                  new Coding()
+                          .setSystem("http://hl7.org/fhir/us/davinci-pct/CodeSystem/PCTDocumentSection")
+                          .setCode("gfe-section")
+          ));
+          // Extract Patient and Organization/Practitioner for subject/author
+          for (Bundle.BundleEntryComponent subEntry : bundle.getEntry()) {
+            Resource subResource = subEntry.getResource();
+            if (!subjectSet && subResource instanceof Patient) {
+              Patient patient = (Patient) subResource;
+              gfeComposition.setSubject(new Reference(patient.getIdElement().getResourceType() + "/" + patient.getIdElement().getIdPart()));
+              subjectSet = true;
+            } else if (subResource instanceof Organization) {
+              Organization org = (Organization) subResource;
+              if (org.hasType() && org.getTypeFirstRep().hasCoding()) {
+                String code = org.getTypeFirstRep().getCodingFirstRep().getCode();
+                String refString = org.getIdElement().getResourceType() + "/" + org.getIdElement().getIdPart();
+                if (!"pay".equals(code)) {
+                  gfeSection.addAuthor(new Reference(refString));
+                  if (uniqueAuthors.add(refString)) {
+                    gfeComposition.addAuthor(new Reference(refString));
+                  }
+                }
+              }
+            } else if (subResource instanceof Practitioner) {
+              Practitioner practitioner = (Practitioner) subResource;
+              String refString = practitioner.getIdElement().getResourceType() + "/" + practitioner.getIdElement().getIdPart();
+              if (uniqueAuthors.add(refString)) {
+                gfeComposition.addAuthor(new Reference(refString));
+              }
+              gfeSection.addAuthor(new Reference(refString));
+            }
+          }
+          gfeComposition.addSection(gfeSection);
+        }
+      }
+    }
+    gfeComposition.setDate(packetBundle.getTimestamp()); // Composition editing time ?
+
+    // Add title
+    gfeComposition.setTitle("GFE Composition for " + (gfeComposition.getSubject() != null ? gfeComposition.getSubject().getReference() : "Unknown Subject"));
+
+    // Add Composition as first entry in packetBundle
+    Bundle.BundleEntryComponent compositionEntry = new Bundle.BundleEntryComponent();
+    compositionEntry.setId(gfeComposition.getIdElement().getIdPart());
+    compositionEntry.setFullUrl(theRequestDetails.getFhirServerBase() + "/Composition/" + gfeComposition.getIdElement().getIdPart());
+    compositionEntry.setResource(gfeComposition);
+    packetBundle.getEntry().add(0, compositionEntry);
+
   }
 
   public List<Task> getContributorTasks(Task coordinationTask, RequestDetails theRequestDetails)
@@ -489,7 +586,3 @@ public class GfeRetrieveOperation {
 
   
 }
-
-
-
-
