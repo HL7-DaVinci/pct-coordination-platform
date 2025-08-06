@@ -61,6 +61,7 @@ public class GfeRetrieveOperation {
   private static final String PCT_GFE_MISSING_BUNDLE_PROFILE = "http://hl7.org/fhir/us/davinci-pct/StructureDefinition/davinci-pct-gfe-missing-bundle";
   private static final String PCT_GFE_BUNDLE_PROFILE = "http://hl7.org/fhir/us/davinci-pct/StructureDefinition/davinci-pct-gfe-bundle";
   private static final String PCT_GFE_COMPOSITION_PROFILE = "http://hl7.org/fhir/us/davinci-pct/StructureDefinition/davinci-pct-gfe-composition";
+  private static final String PCT_GFE_DOCUMENT_REFERENCE_PROFILE = "http://hl7.org/fhir/us/davinci-pct/StructureDefinition/davinci-pct-gfe-documentreference";
 
   private FhirContext theFhirContext;
   //private DaoRegistry daoRegistry;
@@ -68,6 +69,11 @@ public class GfeRetrieveOperation {
   private IFhirResourceDao<Practitioner> thePractitionerDao;
   private IFhirResourceDao<PractitionerRole> thePractitionerRoleDao;
   private IFhirResourceDao<Organization> theOrganizationDao;
+  private IFhirResourceDao<Patient> thePatientDao;
+  private IFhirResourceDao<DocumentReference> theDocumentReferenceDao;
+  private IFhirResourceDao<Bundle> theBundleDao;
+  private IFhirResourceDao<Composition> theCompositionDao;
+
 
   public GfeRetrieveOperation(FhirContext ctx, DaoRegistry daoRegistry) {
     this.theFhirContext = ctx;
@@ -75,6 +81,11 @@ public class GfeRetrieveOperation {
     thePractitionerDao = daoRegistry.getResourceDao(Practitioner.class);
     thePractitionerRoleDao = daoRegistry.getResourceDao(PractitionerRole.class);
     theOrganizationDao = daoRegistry.getResourceDao(Organization.class);
+    thePatientDao = daoRegistry.getResourceDao(Patient.class);
+    theDocumentReferenceDao = daoRegistry.getResourceDao(DocumentReference.class);
+    theBundleDao = daoRegistry.getResourceDao(Bundle.class);
+    theCompositionDao = daoRegistry.getResourceDao(Composition.class);
+
     //theDomainResourceDao = daoRegistry.getResourceDao(DomainResource.class);
   }
 
@@ -91,8 +102,16 @@ public class GfeRetrieveOperation {
     if(requestTask.hasCode() && requestTask.getCode().hasCoding("http://hl7.org/fhir/us/davinci-pct/CodeSystem/PCTGFERequestTaskCSTemporaryTrialUse", "gfe-coordination-task"))
     {
       Bundle responseBundle = createPacketBundle(requestTask, theRequestDetails);
-      //theServletResponse.setStatus(201);
-      //IdType id = new IdType("Patient", theId);
+
+      logger.info("Save/Update GFE Packet "+responseBundle.getId());
+      theBundleDao.update(responseBundle, theRequestDetails);
+
+      // Create and save the DocumentReference resource
+      DocumentReference docRef = createDocumentReference(responseBundle, requestTask, theRequestDetails);
+      if (docRef != null) {
+        logger.info("Save/Update GFE DocumentReference "+docRef.getId());
+        theDocumentReferenceDao.update(docRef, theRequestDetails);
+      }
       return responseBundle;
     }
     else
@@ -125,7 +144,7 @@ public class GfeRetrieveOperation {
 		return retVal.getAllResources();
      */
     //throw new InternalErrorException("Unaddressed internal error on gfe-retrieve operation");
-    
+
     // Bundle retVal = new Bundle();
     // return retVal;
 
@@ -142,6 +161,10 @@ public class GfeRetrieveOperation {
   public Bundle createPacketBundle(Task coordinationTask, RequestDetails theRequestDetails) {
     Bundle packetBundle = new Bundle();
     packetBundle.setType(BundleType.DOCUMENT);
+
+    // Setting the id for the GFE Packet Bundle using the Coordination Task's id to ensure the Bundle can be updated for this Task.
+    packetBundle.setId("PCT-GFE-Packet-"+coordinationTask.getIdElement().getIdPart());
+
     Meta packet_bundle_meta = new Meta();
     packet_bundle_meta.addProfile(PCT_GFE_PACKET_PROFILE);
     packetBundle.setMeta(packet_bundle_meta);
@@ -152,9 +175,6 @@ public class GfeRetrieveOperation {
     identifier.setValue(uuid);
     packetBundle.setIdentifier(identifier);
     packetBundle.setTimestamp(new Date());
-
-    Patient patient = null;
-    Coverage coverage = null;
     List<Resource> copyResouceList = new ArrayList();
     
 
@@ -182,6 +202,13 @@ public class GfeRetrieveOperation {
           (entryResource.getResourceType() == ResourceType.NutritionOrder) ||
           (entryResource.getResourceType() == ResourceType.VisionPrescription))
           {
+            // Extract Practitioner, Organization, and Patient resources from the GFE Information Bundle attached to the Coordination Task
+            // and update or save them to the Coordination Platform server.
+            if(entryResource.getResourceType() == ResourceType.Patient || entryResource.getResourceType() == ResourceType.Practitioner || entryResource.getResourceType() == ResourceType.Organization)
+            {
+              logger.info("Save/Update resource of type: {} with ID: {}", entryResource.getResourceType().name(), entryResource.getIdElement().getIdPart());
+              saveResource(entryResource, theRequestDetails);
+            }
             copyResouceList.add(entryResource);
           }
           if((entryResource.getResourceType() == ResourceType.Patient) ||
@@ -325,6 +352,10 @@ public class GfeRetrieveOperation {
             Bundle gfeBundle = getAttachedOutputBundle(task.getOutput());
             if(gfeBundle != null)
             {
+              //logger.info(gfeBundle.getIdElement().getIdPart());
+              gfeBundle.setId("PCT-GFE-Bundle-"+task.getIdElement().getIdPart());
+              /*logger.info("Save/Update GFE Bundle "+gfeBundle.getId());
+              theBundleDao.update(gfeBundle);*/
               Bundle.BundleEntryComponent gfeBundleEntry = new Bundle.BundleEntryComponent();
               gfeBundleEntry.setResource(gfeBundle);
               packetBundle.addEntry(gfeBundleEntry);
@@ -370,17 +401,159 @@ public class GfeRetrieveOperation {
     );
 
     logger.info("Adding GFE Composition to GFE Packet Bundle");
-    addGFECompositionToPacketBundle(packetBundle, theRequestDetails);
+    addGFECompositionToPacketBundle(packetBundle, coordinationTask.getIdElement().getIdPart(), theRequestDetails);
 
     return packetBundle;
+  }
+
+
+  private void saveResource(Resource resource, RequestDetails theRequestDetails) {
+    if (resource == null ||
+            !(resource instanceof Practitioner ||
+                    resource instanceof Organization ||
+                    resource instanceof Patient)) return;
+    logger.info("Full Resource ID: " + resource.getIdElement().getValue());
+    logger.info("LogicalId: " + resource.getIdElement().getIdPart());
+
+    resource.setId(resource.getIdElement().toVersionless());
+
+    logger.info("Full Resource ID Post Versionless: " + resource.getIdElement().getValue());
+    logger.info("LogicalId: Post Versionless: " + resource.getIdElement().getIdPart());
+
+    IFhirResourceDao dao = null;
+    if (resource instanceof Practitioner) {
+      dao = thePractitionerDao;
+    } else if (resource instanceof Organization) {
+      dao = theOrganizationDao;
+    } else if (resource instanceof Patient) {
+      dao = thePatientDao;
+    }
+
+    if (dao != null) {
+      logger.info("Update resource of type: " + resource.getResourceType().name());
+      dao.update(resource, theRequestDetails);
+    }
+  }
+
+  private DocumentReference createDocumentReference(Bundle gfePacket, Task coordinationTask, RequestDetails theRequestDetails) {
+    DocumentReference docRef = null;
+    try {
+      docRef = new DocumentReference();
+      docRef.setId("PCT-GFE-DocumentReference-"+coordinationTask.getIdElement().getIdPart());
+
+      // Set meta/profile
+      Meta meta = new Meta();
+      meta.addProfile(PCT_GFE_DOCUMENT_REFERENCE_PROFILE);
+      docRef.setMeta(meta);
+
+      docRef.setStatus(Enumerations.DocumentReferenceStatus.CURRENT);
+
+      // Set docStatus to FINAL if businessStatus is 'closed', else PRELIMINARY
+      if (coordinationTask.hasBusinessStatus() &&
+              coordinationTask.getBusinessStatus().hasCoding() &&
+              coordinationTask.getBusinessStatus().getCodingFirstRep().hasCode() &&
+              "closed".equals(coordinationTask.getBusinessStatus().getCodingFirstRep().getCode())) {
+        docRef.setDocStatus(DocumentReference.ReferredDocumentStatus.FINAL);
+      } else {
+        docRef.setDocStatus(DocumentReference.ReferredDocumentStatus.PRELIMINARY);
+      }
+
+      docRef.setType(new CodeableConcept().addCoding(
+              new Coding("http://hl7.org/fhir/us/davinci-pct/CodeSystem/PCTDocumentTypeTemporaryTrialUse", "gfe-packet", null)
+      ));
+      docRef.addCategory(
+              new CodeableConcept().addCoding(
+                      new Coding("http://hl7.org/fhir/us/davinci-pct/CodeSystem/PCTDocumentCategoryTemporaryTrialUse", "estimate", null)
+              )
+      );
+
+      // Add requestInitiationTime extension
+      Extension requestInitiationTime = new Extension("http://hl7.org/fhir/us/davinci-pct/StructureDefinition/requestInitiationTime");
+      requestInitiationTime.setValue(new InstantType(gfePacket.getTimestamp()));//TODO check if this is the time to use
+      docRef.addExtension(requestInitiationTime);
+
+      Set<String> uniqueAuthorRefs = new HashSet<>();
+      boolean isSubjectSet = false;
+
+      for (Bundle.BundleEntryComponent packetEntry : gfePacket.getEntry()) {
+        Resource resource = packetEntry.getResource();
+        // Copy gfeServiceLinkingInfo extension from GFE Composition if present
+        if (resource instanceof Composition) {
+          Composition comp = (Composition) resource;
+          Extension gfeServiceLinkingInfo = comp.getExtensionByUrl("http://hl7.org/fhir/us/davinci-pct/StructureDefinition/gfeServiceLinkingInfo");
+          if (gfeServiceLinkingInfo != null) {
+            docRef.addExtension(gfeServiceLinkingInfo.copy());
+          }
+        } else if (resource instanceof Patient && !isSubjectSet) {
+          docRef.setSubject(new Reference("Patient/" + resource.getIdElement().getIdPart()));
+          isSubjectSet = true;
+        }
+        else if (isGFEBundle(resource))  {
+          Bundle bundle = (Bundle) resource;
+          boolean providerResourceFound = false;
+          String providerRef = "";
+          for (Bundle.BundleEntryComponent entry : bundle.getEntry()) {
+            Resource entryResource = entry.getResource();
+            if( providerResourceFound && !providerRef.isEmpty()){
+              break; // Stop processing this bundle if provider author is added and saved already
+            }
+            if (entryResource instanceof Claim && !isGFESummary((Claim) entryResource) && providerRef.isEmpty()) {
+              Claim gfeClaim = (Claim) entryResource;
+              if (gfeClaim.hasInsurer() && gfeClaim.getInsurer().hasReference()) {
+                String insurerRef = gfeClaim.getInsurer().getReference();
+                if (uniqueAuthorRefs.add(insurerRef)) { // Add author(payer) only if not already added
+                  logger.info("DocRef Payer Author added: {}", insurerRef);
+                  docRef.addAuthor(new Reference(insurerRef));
+                }
+              }
+              if (gfeClaim.hasProvider() && gfeClaim.getProvider().hasReference()) {
+                providerRef = gfeClaim.getProvider().getReference();
+                if (uniqueAuthorRefs.add(providerRef)) { // Add author only if not already added
+                  logger.info("DocRef Provider Author added: {}", providerRef);
+                  docRef.addAuthor(new Reference(providerRef));
+                }
+              }
+            } else if ((entryResource instanceof Practitioner || entryResource instanceof Organization) &&
+                          entryResource.hasIdElement() &&
+                          (("Practitioner/" + entryResource.getIdElement().getIdPart()).equals(providerRef) ||
+                            ("Organization/" + entryResource.getIdElement().getIdPart()).equals(providerRef)
+                          )) {
+              providerResourceFound = true;
+              // Saving the provider resource (Practitioner or Organization) that is the author of the GFE Bundle for Doc reference
+              saveResource(entryResource, theRequestDetails);
+            }
+          }
+        }
+      }
+
+      // Set date
+      docRef.setDate(new Date());
+
+      // Add content (Attachment with AEOB packet URL)
+      DocumentReference.DocumentReferenceContentComponent content = new DocumentReference.DocumentReferenceContentComponent();
+      Attachment attachment = new Attachment();
+      attachment.setContentType("application/fhir+json");
+      logger.info("DocumentReference Attachment Url " + theRequestDetails.getFhirServerBase() + "/Bundle/" + gfePacket.getIdElement().getIdPart());
+      attachment.setUrl(theRequestDetails.getFhirServerBase() + "/Bundle/" + gfePacket.getIdElement().getIdPart());
+      content.setAttachment(attachment);
+      content.setFormat(new Coding()
+              .setSystem("http://hl7.org/fhir/us/davinci-pct/CodeSystem/PCTDocumentTypeTemporaryTrialUse")
+              .setCode("pct-gfe-packet"));
+      docRef.addContent(content);
+
+    } catch (Exception e) {
+      logger.info("Error creating GFE DocumentReference: " + e.getMessage());
+      e.printStackTrace();
+    }
+    return docRef;
   }
 
   /**
    * Create a single GFE Composition resource referencing all GFE Bundles in the packetBundle.
    */
-  private void addGFECompositionToPacketBundle(Bundle gfePacket, RequestDetails theRequestDetails){
+  private void addGFECompositionToPacketBundle(Bundle gfePacket, String coordinationTaskId,  RequestDetails theRequestDetails){
     Composition gfeComposition = new Composition();
-    gfeComposition.setId("GFE-Comp-"+UUID.randomUUID().toString());
+    gfeComposition.setId("PCT-GFE-Composition-"+coordinationTaskId);
     gfeComposition.getMeta().addProfile(PCT_GFE_COMPOSITION_PROFILE);
 
     // Add dummy extensions ( gfeServiceLinkingInfo and requestOriginationType)
@@ -388,7 +561,7 @@ public class GfeRetrieveOperation {
     // Add identifier
     gfeComposition.setIdentifier(new Identifier()
             .setSystem("http://www.example.org/identifiers/composition")
-            .setValue(UUID.randomUUID().toString())
+            .setValue("019283476"+coordinationTaskId)
     );
     gfeComposition.setStatus(Composition.CompositionStatus.FINAL);
     gfeComposition.setType(new CodeableConcept().addCoding(
@@ -408,11 +581,7 @@ public class GfeRetrieveOperation {
     boolean subjectSet = false;
     for (Bundle.BundleEntryComponent entry : gfePacket.getEntry()) {
       Resource resource = entry.getResource();
-      if (resource instanceof Bundle
-              && resource.hasMeta()
-              && resource.getMeta().hasProfile()
-              && resource.getMeta().hasProfile(PCT_GFE_BUNDLE_PROFILE)
-              && !resource.getMeta().hasProfile(PCT_GFE_MISSING_BUNDLE_PROFILE)) {
+      if (isGFEBundle(resource)) {
         // Add a section for each GFE in the bundle
         Bundle gfeBundle = (Bundle) resource;
         Composition.SectionComponent gfeBundleSection = buildGfeSectionAndAuthor(gfeBundle, uniqueAuthors, gfeComposition);
@@ -427,6 +596,9 @@ public class GfeRetrieveOperation {
 
     // Add title
     gfeComposition.setTitle("GFE Composition for " + (gfeComposition.getSubject() != null ? gfeComposition.getSubject().getReference() : "Unknown Subject"));
+
+    // Save/Update the GFE Composition
+    //theCompositionDao.update(gfeComposition, theRequestDetails);
 
     // Add Composition as first entry in packetBundle
     Bundle.BundleEntryComponent compositionEntry = new Bundle.BundleEntryComponent();
@@ -482,7 +654,7 @@ public class GfeRetrieveOperation {
     section.setCode(new CodeableConcept(new Coding(
             "http://hl7.org/fhir/us/davinci-pct/CodeSystem/PCTDocumentSection",
             code, display)));
-    section.addEntry(new Reference(resource.getIdElement().getResourceType() + "/" + resource.getIdElement().getIdPart()));
+    section.addEntry(new Reference("Bundle/" + resource.getIdElement().getIdPart()));
     return section;
   }
 
@@ -602,5 +774,14 @@ public class GfeRetrieveOperation {
     return attachmentBundle;
   }
 
-  
+  /**
+   * Returns true if the resource is a Bundle with the GFE Bundle profile and not the Missing Bundle profile.
+   */
+  private boolean isGFEBundle(Resource resource) {
+    return resource instanceof Bundle
+            && resource.hasMeta()
+            && resource.getMeta().hasProfile()
+            && resource.getMeta().hasProfile(PCT_GFE_BUNDLE_PROFILE)
+            && !resource.getMeta().hasProfile(PCT_GFE_MISSING_BUNDLE_PROFILE);
+  }
 }
