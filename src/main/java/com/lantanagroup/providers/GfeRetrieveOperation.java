@@ -331,15 +331,14 @@ public class GfeRetrieveOperation {
         {
           taskOwner = getEntityResourceByReference(task.getOwner(), theRequestDetails);
         }
-
-        if(task.hasOutput())
+        // If the contributor task is not marked as completed, a GFE Missing Bundle must be created, even if a GFE bundle is present.
+        if(task.hasOutput() && task.hasStatus() && task.getStatus() == Task.TaskStatus.COMPLETED)
         {
           task.getOutput().forEach(output -> {
             
             // TODO Make more robust to get a matching bundle (Same for all bundles)
             if(output.getType().hasCoding("http://hl7.org/fhir/us/davinci-pct/CodeSystem/PCTTaskOutputTypeCSTemporaryTrialUse", "gfe-bundle"))
             {
-              
               hasGFEBundle.set(true);
             }
           });
