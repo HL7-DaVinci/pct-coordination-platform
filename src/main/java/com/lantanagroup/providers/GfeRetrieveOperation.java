@@ -400,7 +400,7 @@ public class GfeRetrieveOperation {
     );
 
     logger.info("Adding GFE Composition to GFE Packet Bundle");
-    addGFECompositionToPacketBundle(packetBundle, coordinationTask.getIdElement().getIdPart(), theRequestDetails);
+    addGFECompositionToPacketBundle(packetBundle, coordinationTask, theRequestDetails);
 
     return packetBundle;
   }
@@ -418,6 +418,13 @@ public class GfeRetrieveOperation {
 
     logger.info("Full Resource ID Post Versionless: " + resource.getIdElement().getValue());
     logger.info("LogicalId: Post Versionless: " + resource.getIdElement().getIdPart());
+
+    String logicalId = resource.getIdElement().getIdPart();
+    if (logicalId != null && logicalId.startsWith("urn:uuid:")) {
+      logicalId = logicalId.substring("urn:uuid:".length());
+      resource.setId(logicalId);
+      logger.info("Removed urn:uuid:, new LogicalId: " + resource.getIdElement().getIdPart());
+    }
 
     IFhirResourceDao dao = null;
     if (resource instanceof Practitioner) {
@@ -466,10 +473,13 @@ public class GfeRetrieveOperation {
               )
       );
 
-      // Add requestInitiationTime extension
-      Extension requestInitiationTime = new Extension("http://hl7.org/fhir/us/davinci-pct/StructureDefinition/requestInitiationTime");
-      requestInitiationTime.setValue(new InstantType(gfePacket.getTimestamp()));//TODO check if this is the time to use
-      docRef.addExtension(requestInitiationTime);
+      // Add requestInitiationTime extension. Use the value from the Coordination Task's extension if present
+      Extension taskRequestInitiationExt = coordinationTask.getExtensionByUrl("http://hl7.org/fhir/us/davinci-pct/StructureDefinition/requestInitiationTime");
+      if (taskRequestInitiationExt != null && taskRequestInitiationExt.getValue() != null) {
+        Extension requestInitiationTime = new Extension("http://hl7.org/fhir/us/davinci-pct/StructureDefinition/requestInitiationTime");
+        requestInitiationTime.setValue(taskRequestInitiationExt.getValue());
+        docRef.addExtension(requestInitiationTime);
+      }
 
       Set<String> uniqueAuthorRefs = new HashSet<>();
       boolean isSubjectSet = false;
@@ -550,17 +560,17 @@ public class GfeRetrieveOperation {
   /**
    * Create a single GFE Composition resource referencing all GFE Bundles in the packetBundle.
    */
-  private void addGFECompositionToPacketBundle(Bundle gfePacket, String coordinationTaskId,  RequestDetails theRequestDetails){
+  private void addGFECompositionToPacketBundle(Bundle gfePacket, Task coordinationTask,  RequestDetails theRequestDetails){
     Composition gfeComposition = new Composition();
-    gfeComposition.setId("PCT-GFE-Composition-"+coordinationTaskId);
+    gfeComposition.setId("PCT-GFE-Composition-"+coordinationTask.getIdElement().getIdPart());
     gfeComposition.getMeta().addProfile(PCT_GFE_COMPOSITION_PROFILE);
 
-    // Add dummy extensions ( gfeServiceLinkingInfo and requestOriginationType)
-    addGfeCompositionExtensions(gfeComposition);
+    // Add extensions ( gfeServiceLinkingInfo and requestOriginationType)
+    addGfeCompositionExtensions(gfeComposition, coordinationTask);
     // Add identifier
     gfeComposition.setIdentifier(new Identifier()
             .setSystem("http://www.example.org/identifiers/composition")
-            .setValue("019283476"+coordinationTaskId)
+            .setValue("019283476"+coordinationTask.getIdElement().getIdPart())
     );
     gfeComposition.setStatus(Composition.CompositionStatus.FINAL);
     gfeComposition.setType(new CodeableConcept().addCoding(
@@ -608,13 +618,24 @@ public class GfeRetrieveOperation {
 
   }
 
-  private void addGfeCompositionExtensions(Composition gfeComposition) {
+  private void addGfeCompositionExtensions(Composition gfeComposition, Task coordinationTask) {
     Extension linkingInfo = new Extension();
     linkingInfo.setUrl("http://hl7.org/fhir/us/davinci-pct/StructureDefinition/gfeServiceLinkingInfo");
     Extension linkingIdentifierExt = new Extension();
     linkingIdentifierExt.setUrl("linkingIdentifier");
-    linkingIdentifierExt.setValue(new StringType("223452-2342-2435-008002"));
+    linkingIdentifierExt.setValue(new Identifier()
+        .setSystem("http://example.org/Claim/identifiers")
+        .setValue("223452-2342-2435-008002"));
     linkingInfo.addExtension(linkingIdentifierExt);
+
+    // plannedPeriodOfService sub-extension from coordinationTask extension
+    Extension taskPlannedPeriodExt = coordinationTask.getExtensionByUrl("http://hl7.org/fhir/us/davinci-pct/StructureDefinition/plannedServicePeriod");
+    if (taskPlannedPeriodExt != null && taskPlannedPeriodExt.getValue() != null) {
+      Extension plannedPeriodExt = new Extension();
+      plannedPeriodExt.setUrl("plannedPeriodOfService");
+      plannedPeriodExt.setValue(taskPlannedPeriodExt.getValue());
+      linkingInfo.addExtension(plannedPeriodExt);
+    }
     gfeComposition.addExtension(linkingInfo);
 
     Extension requestOrigType = new Extension()
