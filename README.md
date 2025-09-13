@@ -1,5 +1,7 @@
 # pct-coordination-platform
 
+[![Build Status](https://ci.hl7.org/api/badges/HL7-DaVinci/pct-coordination-platform/status.svg)](https://ci.hl7.org/HL7-DaVinci/pct-coordination-platform)
+
 ## Foundry
 A live demo is hosted by [HL7 FHIR Foundry](https://foundry.hl7.org/products/f2f338e7-883b-4836-b3bb-df9cd3f4d949).
 
