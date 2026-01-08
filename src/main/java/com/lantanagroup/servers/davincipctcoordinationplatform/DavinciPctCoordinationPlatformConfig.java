@@ -1,5 +1,6 @@
 package com.lantanagroup.servers.davincipctcoordinationplatform;
 
+import com.lantanagroup.providers.GfeCoordinationRequestProvider;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.autoconfigure.EnableAutoConfiguration;
 import org.springframework.boot.autoconfigure.elasticsearch.ElasticsearchRestClientAutoConfiguration;
@@ -69,7 +70,8 @@ public class DavinciPctCoordinationPlatformConfig extends CommonConfig {
     restfulServer.registerInterceptor(new ProcessCustomizer(restfulServer.getFhirContext(), daoRegistry, "davincipctcoordinationplatform"));
 
     restfulServer.registerProviders(
-        new GfeRetrieveOperation(restfulServer.getFhirContext(), daoRegistry)
+        new GfeRetrieveOperation(restfulServer.getFhirContext(), daoRegistry),
+        new GfeCoordinationRequestProvider(daoRegistry)
     );
 
     ServletRegistrationBean<RestfulServer> registration = new ServletRegistrationBean<>(restfulServer, "/fhir/*");
