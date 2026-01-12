@@ -2,7 +2,7 @@
   "resourceType" : "Patient",
   "id" : "patient1001",
   "meta" : {
-    "profile" : ["http://hl7.org/fhir/us/davinci-hrex/StructureDefinition/hrex-patient-demographics"]
+    "profile" : ["http://hl7.org/fhir/us/core/StructureDefinition/us-core-patient|7.0.0"]
   },
   "text" : {
     "status" : "additional",
