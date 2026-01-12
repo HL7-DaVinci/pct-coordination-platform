@@ -151,11 +151,11 @@ public class GfeRetrieveOperation {
   }
 
 
-  
+
   /**
    * Create a new bundle with type Collection with contributed GFE Bundles and GFE Missing Bundles
    * used for queries
-   * 
+   *
    * @return the new bundle
    */
   public Bundle createPacketBundle(Task coordinationTask, RequestDetails theRequestDetails) {
@@ -169,26 +169,26 @@ public class GfeRetrieveOperation {
     packet_bundle_meta.addProfile(PCT_GFE_PACKET_PROFILE);
     packetBundle.setMeta(packet_bundle_meta);
     Identifier identifier = new Identifier();
-    
+
     identifier.setSystem(theRequestDetails.getFhirServerBase() + "/resourceIdentifiers");
     String uuid = UUID.randomUUID().toString();
     identifier.setValue(uuid);
     packetBundle.setIdentifier(identifier);
     packetBundle.setTimestamp(new Date());
     List<Resource> copyResouceList = new ArrayList();
-    
+
 
 
 
     // get common elements from Coordination Task
     // TODO JIRA, will need a way to designate the types of input/outputs.
-    
+
     if(coordinationTask.hasInput())
     {
       Bundle informationBundle = getAttachedInputBundle(coordinationTask.getInput());
       if(informationBundle != null)
       {
-        informationBundle.getEntry().forEach(entry -> 
+        informationBundle.getEntry().forEach(entry ->
         {
           Resource entryResource = entry.getResource();
           if((entryResource.getResourceType() == ResourceType.Patient) ||
@@ -217,8 +217,19 @@ public class GfeRetrieveOperation {
             Bundle.BundleEntryComponent resourceEntry = new Bundle.BundleEntryComponent();
             resourceEntry.setResource(entryResource);
             packetBundle.addEntry(resourceEntry);
-            
+
           }
+          // check for the payer organization and place in the bundle
+          if(entryResource.getResourceType() == ResourceType.Organization)
+          {
+            Organization theOrganization = (Organization)entryResource;
+            if(hasPayType(theOrganization)){
+              Bundle.BundleEntryComponent resourceEntry = new Bundle.BundleEntryComponent();
+              resourceEntry.setResource(entryResource);
+              packetBundle.addEntry(resourceEntry);
+            }
+          }
+
 
           /* Am alternative way to check for the payer organization and place in the bundle
           if(entryResource.getResourceType() == ResourceType.Organization)
@@ -243,8 +254,8 @@ public class GfeRetrieveOperation {
             
           }
            */
-          
-        });    
+
+        });
       }
 
       DomainResource taskRequester = null;
@@ -308,23 +319,23 @@ public class GfeRetrieveOperation {
       });
 
       
-     */ 
+     */
     }
     //byte[] decoded = Base64.getDecoder().decode(encoded);
     //String decodedStr = new String(decoded, StandardCharsets.UTF_8);
- 
+
     List<Task> contributorTasks = getContributorTasks(coordinationTask, theRequestDetails);
     contributorTasks.forEach(task -> {
       //boolean hasGFEBundle = false;
-      // All of the FHIR Resources in .output.valueAttachment of the associated (that have a Task.partOf that references the GFE Coordination Task) 
+      // All of the FHIR Resources in .output.valueAttachment of the associated (that have a Task.partOf that references the GFE Coordination Task)
       //    GFE Contributor Task where the status is not rejected or cancelled (NOTE: that each Contributor Task may have multiple output.valueAttachment iterations.
       if(task.getStatus() != Task.TaskStatus.REJECTED && task.getStatus() != Task.TaskStatus.CANCELLED)
       {
         AtomicBoolean hasGFEBundle = new AtomicBoolean();
         hasGFEBundle.set(false);
-        
+
         //var hasBundleObject = new Object(){ boolean hasGFEBundle = false; };
-        
+
 
         DomainResource taskOwner = null;
         if(task.hasOwner())
@@ -335,7 +346,7 @@ public class GfeRetrieveOperation {
         if(task.hasOutput() && task.hasStatus() && task.getStatus() == Task.TaskStatus.COMPLETED)
         {
           task.getOutput().forEach(output -> {
-            
+
             // TODO Make more robust to get a matching bundle (Same for all bundles)
             if(output.getType().hasCoding("http://hl7.org/fhir/us/davinci-pct/CodeSystem/PCTTaskOutputTypeCSTemporaryTrialUse", "gfe-bundle"))
             {
@@ -345,7 +356,7 @@ public class GfeRetrieveOperation {
         }
         if(hasGFEBundle.get())
         {
-          
+
           if(task.hasOutput())
           {
             Bundle gfeBundle = getAttachedOutputBundle(task.getOutput());
@@ -364,7 +375,7 @@ public class GfeRetrieveOperation {
               hasGFEBundle.set(false);
             }
           }
-          
+
         }
         if(!hasGFEBundle.get())
         {
@@ -692,7 +703,7 @@ public class GfeRetrieveOperation {
     //ReferenceParam taskReference = new ReferenceParam(coordinationTask.getId());
     searchMap.add(Task.PART_OF.getParamName(), new ReferenceParam(coordinationTask.getId()));
     IBundleProvider taskResults = theTaskDao.search(searchMap, theRequestDetails);
-    
+
 		taskResults.getResources(0, taskResults.size())
 			.stream().map(Task.class::cast)
 			.forEach(task -> contributorTasks.add(task));
@@ -727,7 +738,7 @@ public class GfeRetrieveOperation {
 
     return retVal;
   }
-  
+
 
   public Bundle getAttachedInputBundle(List<Task.ParameterComponent> parameters)
   {
@@ -804,4 +815,12 @@ public class GfeRetrieveOperation {
             && resource.getMeta().hasProfile(PCT_GFE_BUNDLE_PROFILE)
             && !resource.getMeta().hasProfile(PCT_GFE_MISSING_BUNDLE_PROFILE);
   }
+
+  private boolean hasPayType(Organization org) {
+    if (org == null || !org.hasType()) return false;
+    return org.getType().stream()
+            .flatMap(type -> type.getCoding().stream())
+            .anyMatch(coding -> "pay".equals(coding.getCode()));
+  }
+
 }
