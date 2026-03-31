@@ -1,5 +1,11 @@
 package com.lantanagroup.servers.davincipctcoordinationplatform;
 
+import com.lantanagroup.common.*;
+import ca.uhn.fhir.context.FhirContext;
+import ca.uhn.fhir.jpa.subscription.match.matcher.subscriber.SubscriptionMatchDeliverer;
+import ca.uhn.fhir.jpa.subscription.match.registry.SubscriptionRegistry;
+import ca.uhn.fhir.jpa.topic.SubscriptionTopicDispatcher;
+import ca.uhn.fhir.jpa.topic.SubscriptionTopicPayloadBuilder;
 import com.lantanagroup.providers.GfeCoordinationRequestProvider;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.autoconfigure.EnableAutoConfiguration;
@@ -12,10 +18,6 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Import;
 import org.springframework.context.annotation.Primary;
 import org.springframework.context.annotation.PropertySource;
-
-import com.lantanagroup.common.CapabilityStatementCustomizer;
-import com.lantanagroup.common.ProcessCustomizer;
-import com.lantanagroup.common.CommonConfig;
 import com.lantanagroup.providers.GfeRetrieveOperation;
 
 
@@ -30,10 +32,9 @@ import ca.uhn.fhir.jpa.subscription.match.config.SubscriptionProcessorConfig;
 import ca.uhn.fhir.jpa.subscription.submit.config.SubscriptionSubmitterConfig;
 import ca.uhn.fhir.rest.server.RestfulServer;
 import ca.uhn.fhir.rest.server.interceptor.ResponseHighlighterInterceptor;
-
-
+import com.lantanagroup.notification.SubscriptionNotificationInterceptor;
 @Configuration
-@ComponentScan(basePackageClasses = { DavinciPctCoordinationPlatformConfig.class })
+@ComponentScan(basePackageClasses = { DavinciPctCoordinationPlatformConfig.class, com.lantanagroup.notification.SubscriptionNotificationController.class })
 @PropertySource("classpath:davincipctcoordinationplatform.properties")
 @EnableAutoConfiguration(exclude = {
   ElasticsearchRestClientAutoConfiguration.class
@@ -63,12 +64,16 @@ public class DavinciPctCoordinationPlatformConfig extends CommonConfig {
   }
 
   @Bean
-  public ServletRegistrationBean<RestfulServer> fhirServletRegistrationBean(RestfulServer restfulServer) {
+  public SubscriptionNotificationInterceptor subscriptionNotificationInterceptor(SubscriptionTopicDispatcher dispatcher) {
+    return new SubscriptionNotificationInterceptor(dispatcher);
+  }
+  @Bean
+  public ServletRegistrationBean<RestfulServer> fhirServletRegistrationBean(RestfulServer restfulServer, SubscriptionNotificationInterceptor subscriptionNotificationInterceptor) {
 
     restfulServer.registerInterceptor(new ResponseHighlighterInterceptor());
     restfulServer.registerInterceptor(new CapabilityStatementCustomizer(restfulServer.getFhirContext(), "davincipctcoordinationplatform"));
     restfulServer.registerInterceptor(new ProcessCustomizer(restfulServer.getFhirContext(), daoRegistry, "davincipctcoordinationplatform"));
-
+    restfulServer.registerInterceptor(subscriptionNotificationInterceptor);
     restfulServer.registerProviders(
         new GfeRetrieveOperation(restfulServer.getFhirContext(), daoRegistry),
         new GfeCoordinationRequestProvider(daoRegistry)
@@ -77,6 +82,21 @@ public class DavinciPctCoordinationPlatformConfig extends CommonConfig {
     ServletRegistrationBean<RestfulServer> registration = new ServletRegistrationBean<>(restfulServer, "/fhir/*");
     registration.setLoadOnStartup(1);
     return registration;
+  }
+
+  @Bean
+  public SubscriptionTopicDispatcher subscriptionTopicDispatcher(
+      FhirContext fhirContext,
+      SubscriptionRegistry subscriptionRegistry,
+      SubscriptionMatchDeliverer subscriptionMatchDeliverer,
+      SubscriptionTopicPayloadBuilder subscriptionTopicPayloadBuilder
+  ) {
+      return new SubscriptionTopicDispatcher(
+          fhirContext,
+          subscriptionRegistry,
+          subscriptionMatchDeliverer,
+          subscriptionTopicPayloadBuilder
+      );
   }
   
 }

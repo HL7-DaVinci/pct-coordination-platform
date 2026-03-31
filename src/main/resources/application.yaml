@@ -1,6 +1,7 @@
 spring:
   main:
     allow-circular-references: true
+    allow-bean-definition-overriding: true
 management:
   endpoints:
     web:
@@ -15,6 +16,10 @@ davincipctcoordinationplatform:
     driverClassName: org.h2.Driver
 
   allow_external_references: true
+
+  subscription:
+    resthook_enabled: true
+    websocket_enabled: false
     
   cors:
     allow_Credentials: true

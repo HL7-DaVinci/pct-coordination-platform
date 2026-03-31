@@ -91,6 +91,17 @@ public class ProcessCustomizer {
                     System.out.println("Failure to update the PractitionerRole: " + e.getMessage());
                 }
             }
+            
+             // Load SubscriptionTopic Basic resources (R5 Backport)
+            for (String filename : getServerResources("ri_resources", "Basic-*.json")) {
+                try {
+                    System.out.println("Uploading Basic (SubscriptionTopic) resource " + filename);
+                    theDaoRegistry.getResourceDao(Basic.class).update(
+                            jparser.parseResource(Basic.class, util.loadResource(filename)), theRequestDetails);
+                } catch (Exception e) {
+                    System.out.println("Failure to upload Basic (SubscriptionTopic): " + e.getMessage());
+                }
+            }
         }
         // if overriding requirement rules, just skip
         

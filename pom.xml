@@ -80,6 +80,11 @@
 		</dependency>
 		<dependency>
 			<groupId>ca.uhn.hapi.fhir</groupId>
+			<artifactId>hapi-fhir-jpaserver-subscription</artifactId>
+			<version>${hapi.version}</version>
+		</dependency>
+		<dependency>
+			<groupId>ca.uhn.hapi.fhir</groupId>
 			<artifactId>hapi-fhir-jpaserver-base</artifactId>
 			<version>${hapi.version}</version>
 		</dependency>
