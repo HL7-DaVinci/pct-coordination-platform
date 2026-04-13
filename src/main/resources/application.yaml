@@ -19,7 +19,7 @@ davincipctcoordinationplatform:
 
   subscription:
     resthook_enabled: true
-    websocket_enabled: false
+    websocket_enabled: true
     
   cors:
     allow_Credentials: true

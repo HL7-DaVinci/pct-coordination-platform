@@ -199,6 +199,12 @@ public class ProcessCustomizer {
                         if(requestTask.hasStatus() && requestTask.getStatus() == Task.TaskStatus.ACCEPTED) {
                             Task coordinationTask = getCoordinationTask(requestTask);
                             if( coordinationTask !=null && coordinationTask.getStatus() == Task.TaskStatus.READY ) {
+                                String coordTaskId = coordinationTask.getIdElement() != null 
+                                    ? coordinationTask.getIdElement().getIdPart() : "unknown";
+                                String contribTaskId = requestTask.getIdElement() != null 
+                                    ? requestTask.getIdElement().getIdPart() : "unknown";
+                                logger.info("Contributor Task {} status changed to ACCEPTED; cascading update: coordinationTask {} from READY to INPROGRESS", 
+                                    contribTaskId, coordTaskId);
                                 coordinationTask.setStatus(Task.TaskStatus.INPROGRESS);
                                 theTaskDao.update(coordinationTask, theRequestDetails);
                             }
@@ -279,38 +285,6 @@ public class ProcessCustomizer {
                 }
             }
         }
-    }
-
-    @Hook(Pointcut.SERVER_OUTGOING_RESPONSE)
-    public void customizeServerOutgoingResponse(RequestDetails theRequestDetails, IBaseResource response) {
-        //update the Contributor Task status to received upon first retrieval, either through read or search
-        if ( "Task".equals(theRequestDetails.getResourceName()) && theRequestDetails.getRequestType() == RequestTypeEnum.GET && ( theRequestDetails.getRestOperationType()== RestOperationTypeEnum.SEARCH_TYPE ||  theRequestDetails.getRestOperationType()== RestOperationTypeEnum.READ ) ) {
-            Task task = getTask(theRequestDetails, response);
-            if( task != null && isContributorTask(task) && task.getStatus() == Task.TaskStatus.REQUESTED ) {
-                try{
-                    task.setStatus(Task.TaskStatus.RECEIVED);
-                    theTaskDao.update(task);
-                }
-                catch (Exception e){
-                    logger.error("Failed to update status of Task to RECEIVED ", e);
-                }
-            }
-        }
-    }
-
-    private Task getTask(RequestDetails theRequestDetails, IBaseResource response) {
-        RestOperationTypeEnum operationType = theRequestDetails.getRestOperationType();
-        Task task = null;
-        // fetch task
-        if( operationType == RestOperationTypeEnum.READ && response instanceof Task ){
-            task = (Task) response;
-        }else if (operationType == RestOperationTypeEnum.SEARCH_TYPE && response instanceof Bundle){
-            Bundle bundle = (Bundle) response;
-            if ( theRequestDetails.getParameters() != null && theRequestDetails.getParameters().containsKey("_id") && bundle.getEntry().size() == 1  && bundle.getEntryFirstRep().getResource() instanceof Task ) {
-                task = (Task) bundle.getEntryFirstRep().getResource();
-            }
-        }
-        return task;
     }
 
   public List<Task> getContributorTasks(Task coordinationTask, RequestDetails theRequestDetails)

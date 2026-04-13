@@ -1,11 +1,13 @@
 package com.lantanagroup.servers.davincipctcoordinationplatform;
 
+import ca.uhn.fhir.jpa.topic.SubscriptionTopicConfig;
 import com.lantanagroup.common.*;
 import ca.uhn.fhir.context.FhirContext;
 import ca.uhn.fhir.jpa.subscription.match.matcher.subscriber.SubscriptionMatchDeliverer;
 import ca.uhn.fhir.jpa.subscription.match.registry.SubscriptionRegistry;
 import ca.uhn.fhir.jpa.topic.SubscriptionTopicDispatcher;
 import ca.uhn.fhir.jpa.topic.SubscriptionTopicPayloadBuilder;
+import com.lantanagroup.notification.SubscriptionWebSocketConfig;
 import com.lantanagroup.providers.GfeCoordinationRequestProvider;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.autoconfigure.EnableAutoConfiguration;
@@ -33,8 +35,10 @@ import ca.uhn.fhir.jpa.subscription.submit.config.SubscriptionSubmitterConfig;
 import ca.uhn.fhir.rest.server.RestfulServer;
 import ca.uhn.fhir.rest.server.interceptor.ResponseHighlighterInterceptor;
 import com.lantanagroup.notification.SubscriptionNotificationInterceptor;
+import com.lantanagroup.notification.SubscriptionNotificationController;
+
 @Configuration
-@ComponentScan(basePackageClasses = { DavinciPctCoordinationPlatformConfig.class, com.lantanagroup.notification.SubscriptionNotificationController.class })
+@ComponentScan(basePackageClasses = { DavinciPctCoordinationPlatformConfig.class, SubscriptionNotificationController.class })
 @PropertySource("classpath:davincipctcoordinationplatform.properties")
 @EnableAutoConfiguration(exclude = {
   ElasticsearchRestClientAutoConfiguration.class
@@ -46,6 +50,8 @@ import com.lantanagroup.notification.SubscriptionNotificationInterceptor;
   SubscriptionSubmitterConfig.class,
 	SubscriptionProcessorConfig.class,
 	SubscriptionChannelConfig.class,
+    SubscriptionWebSocketConfig.class,
+    SubscriptionTopicConfig.class,
   JpaBatch2Config.class,
 	Batch2JobsConfig.class
 })
@@ -63,10 +69,14 @@ public class DavinciPctCoordinationPlatformConfig extends CommonConfig {
     return serverProperties.getDatasource();
   }
 
+  @Autowired
+  private SubscriptionNotificationInterceptor subscriptionNotificationInterceptor;
+
   @Bean
   public SubscriptionNotificationInterceptor subscriptionNotificationInterceptor(SubscriptionTopicDispatcher dispatcher) {
     return new SubscriptionNotificationInterceptor(dispatcher);
   }
+
   @Bean
   public ServletRegistrationBean<RestfulServer> fhirServletRegistrationBean(RestfulServer restfulServer, SubscriptionNotificationInterceptor subscriptionNotificationInterceptor) {
 
