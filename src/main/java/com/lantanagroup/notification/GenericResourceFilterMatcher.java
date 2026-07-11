@@ -20,6 +20,9 @@ public class GenericResourceFilterMatcher implements ISubscriptionTopicFilterMat
     private static final Logger logger = LoggerFactory.getLogger(GenericResourceFilterMatcher.class);
 
     private static final String FILTER_HAS_TASK_PART_OF_OWNER = "_has:Task:part-of:owner";
+    private static final String PARAM_REQUESTER = "requester";
+    private static final String PARAM_OWNER = "owner";
+    private static final String PARAM_STATUS = "status";
 
     private final DaoRegistry daoRegistry;
 
@@ -61,6 +64,26 @@ public class GenericResourceFilterMatcher implements ISubscriptionTopicFilterMat
             return result;
         }
 
+        // Custom handler for `requester` reference parameter (added for multiple combined criteria issue)
+        if (PARAM_REQUESTER.equals(paramName) && theIBaseResource instanceof Task) {
+            Task task = (Task) theIBaseResource;
+            boolean isMatch = matchTaskReference(task.getRequester(), paramValue);
+            InMemoryMatchResult result = InMemoryMatchResult.fromBoolean(isMatch);
+            logger.info("Custom requester matcher evaluated {} for criteria {}={}", isMatch ? "MATCH" : "NO MATCH", paramName, paramValue);
+            logMatchResult(theCanonicalTopicSubscriptionFilter, theIBaseResource, result);
+            return result;
+        }
+
+        // Custom handler for `owner` reference parameter (added for  multiple combined criteria issue)
+        if (PARAM_OWNER.equals(paramName) && theIBaseResource instanceof Task) {
+            Task task = (Task) theIBaseResource;
+            boolean isMatch = matchTaskReference(task.getOwner(), paramValue);
+            InMemoryMatchResult result = InMemoryMatchResult.fromBoolean(isMatch);
+            logger.info("Custom owner matcher evaluated {} for criteria {}={}", isMatch ? "MATCH" : "NO MATCH", paramName, paramValue);
+            logMatchResult(theCanonicalTopicSubscriptionFilter, theIBaseResource, result);
+            return result;
+        }
+
         // Delegate to HAPI's built-in in-memory matcher for all other filters
         String criteria = paramName + "=" + paramValue;
         logger.info("Delegating filter to SearchParamMatcher: {}", criteria);
@@ -88,6 +111,61 @@ public class GenericResourceFilterMatcher implements ISubscriptionTopicFilterMat
         logger.info("Custom matcher search count={}", matchCount);
         return matchCount != null && matchCount > 0;
     }
+
+    /**
+     * Matches a task reference against a filter value.
+     * Handles various reference formats like:
+     * - Organization/Submitter-Org-1
+     * - Organization/123
+     * - Practitioner/abc
+     * - https://example.com/Organization/123
+     */
+    private boolean matchTaskReference(org.hl7.fhir.r4.model.Reference taskRef, String filterValue) {
+        if (taskRef == null || !taskRef.hasReference()) {
+            logger.info("Task reference is null or empty, no match against filterValue={}", filterValue);
+            return false;
+        }
+
+        String taskRefValue = taskRef.getReference();
+        logger.info("Matching task reference '{}' against filterValue '{}'", taskRefValue, filterValue);
+
+        // Normalize both values for comparison
+        String normalizedTaskRef = normalizeReference(taskRefValue);
+        String normalizedFilterValue = normalizeReference(filterValue);
+
+        boolean isMatch = normalizedTaskRef.equals(normalizedFilterValue);
+        logger.info("Reference comparison: '{}' vs '{}' = {}", normalizedTaskRef, normalizedFilterValue, isMatch);
+        return isMatch;
+    }
+
+    /**
+     * Normalize references to a common format for comparison.
+     * Strips URLs and focuses on the resource type and ID.
+     * Examples:
+     * - "Organization/123" -> "Organization/123"
+     * - "https://example.com/Organization/123" -> "Organization/123"
+     * - "Organization/Submitter-Org-1" -> "Organization/Submitter-Org-1"
+     */
+    private String normalizeReference(String reference) {
+        if (reference == null) {
+            return "";
+        }
+
+        // Remove trailing slashes
+        reference = reference.replaceAll("/$", "");
+
+        // Extract just the resource type and ID if it's a full URL
+        if (reference.contains("/")) {
+            String[] parts = reference.split("/");
+            if (parts.length >= 2) {
+                // Get the last two parts (resource type and ID)
+                return parts[parts.length - 2] + "/" + parts[parts.length - 1];
+            }
+        }
+
+        return reference;
+    }
+
 
     private void logMatchResult(CanonicalTopicSubscriptionFilter filter, IBaseResource resource, InMemoryMatchResult result) {
         String resourceId = (resource.getIdElement() != null)

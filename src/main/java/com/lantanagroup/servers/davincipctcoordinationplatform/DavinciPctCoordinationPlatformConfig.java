@@ -36,6 +36,8 @@ import ca.uhn.fhir.rest.server.RestfulServer;
 import ca.uhn.fhir.rest.server.interceptor.ResponseHighlighterInterceptor;
 import com.lantanagroup.notification.SubscriptionNotificationInterceptor;
 import com.lantanagroup.notification.SubscriptionNotificationController;
+import org.springframework.web.servlet.config.annotation.CorsRegistry;
+import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
 
 @Configuration
 @ComponentScan(basePackageClasses = { DavinciPctCoordinationPlatformConfig.class, SubscriptionNotificationController.class })
@@ -108,5 +110,32 @@ public class DavinciPctCoordinationPlatformConfig extends CommonConfig {
           subscriptionTopicPayloadBuilder
       );
   }
-  
+
+  @Bean
+  public WebMvcConfigurer notificationCorsConfigurer() {
+    return new WebMvcConfigurer() {
+      @Override
+      public void addCorsMappings(CorsRegistry registry) {
+        java.util.List<String> allowedOrigins = serverProperties.getCors() != null
+            ? serverProperties.getCors().getAllowed_origin()
+            : java.util.List.of("*");
+        boolean allowCredentials = serverProperties.getCors() != null
+            && Boolean.TRUE.equals(serverProperties.getCors().getAllow_Credentials());
+
+        String[] origins = (allowedOrigins != null && !allowedOrigins.isEmpty())
+            ? allowedOrigins.toArray(new String[0])
+            : new String[]{"*"};
+
+        var mapping = registry.addMapping("/notification/**")
+            .allowedOriginPatterns(origins)
+            .allowedMethods("GET", "POST", "DELETE", "OPTIONS")
+            .allowedHeaders("*");
+
+        if (allowCredentials) {
+          mapping.allowCredentials(true);
+        }
+      }
+    };
+  }
+
 }
