@@ -37,6 +37,9 @@ davincipctcoordinationplatform:
       fetchDependencies: false
       reloadExisting: false
 
+initial-data:
+  - ri_resources
+
 # davincipctcoordinationrequester:
 #   datasource:
 #     url: 'jdbc:h2:file:./target/database/h2-davincipctcoordinationrequester'

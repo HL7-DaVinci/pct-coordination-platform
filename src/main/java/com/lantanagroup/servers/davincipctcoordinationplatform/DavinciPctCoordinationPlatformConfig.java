@@ -40,7 +40,8 @@ import org.springframework.web.servlet.config.annotation.CorsRegistry;
 import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
 
 @Configuration
-@ComponentScan(basePackageClasses = { DavinciPctCoordinationPlatformConfig.class, SubscriptionNotificationController.class })
+@ComponentScan(basePackageClasses = { DavinciPctCoordinationPlatformConfig.class, SubscriptionNotificationController.class },
+    basePackages = { "ca.uhn.fhir.jpa.starter.datainitializer" })
 @PropertySource("classpath:davincipctcoordinationplatform.properties")
 @EnableAutoConfiguration(exclude = {
   ElasticsearchRestClientAutoConfiguration.class
