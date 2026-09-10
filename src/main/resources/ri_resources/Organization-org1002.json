@@ -43,13 +43,6 @@
     "use" : "work"
   }],
   "address" : [{
-    "extension" : [{
-      "url" : "http://hl7.org/fhir/us/davinci-pct/StructureDefinition/countrySubdivisionCode",
-      "valueCoding" : {
-        "system" : "urn:iso:std:iso:3166:-2",
-        "code" : "US-MA"
-      }
-    }],
     "line" : ["32 Fruit Street"],
     "city" : "Boston",
     "state" : "MA",
