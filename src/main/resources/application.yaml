@@ -36,6 +36,14 @@ davincipctcoordinationplatform:
       version: 2.0.1
       fetchDependencies: false
       reloadExisting: false
+    uscore:
+      url: http://hl7.org/fhir/us/core/STU7/package.tgz
+      name: hl7.fhir.us.core
+      version: 7.0.0
+    hrex:
+      url: http://hl7.org/fhir/us/davinci-hrex/package.tgz
+      name: hl7.fhir.us.davinci-hrex
+      version: 1.0.0
 
 initial-data:
   - ri_resources

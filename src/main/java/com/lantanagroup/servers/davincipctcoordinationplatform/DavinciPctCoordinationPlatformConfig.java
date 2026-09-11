@@ -22,6 +22,7 @@ import org.springframework.context.annotation.Import;
 import org.springframework.context.annotation.Primary;
 import org.springframework.context.annotation.PropertySource;
 import com.lantanagroup.providers.GfeRetrieveOperation;
+import com.lantanagroup.providers.SystemValidateProvider;
 
 
 import ca.uhn.fhir.batch2.jobs.config.Batch2JobsConfig;
@@ -90,7 +91,8 @@ public class DavinciPctCoordinationPlatformConfig extends CommonConfig {
     restfulServer.registerInterceptor(subscriptionNotificationInterceptor);
     restfulServer.registerProviders(
         new GfeRetrieveOperation(restfulServer.getFhirContext(), daoRegistry),
-        new GfeCoordinationRequestProvider(daoRegistry)
+        new GfeCoordinationRequestProvider(daoRegistry),
+        new SystemValidateProvider(daoRegistry)
     );
 
     ServletRegistrationBean<RestfulServer> registration = new ServletRegistrationBean<>(restfulServer, "/fhir/*");
