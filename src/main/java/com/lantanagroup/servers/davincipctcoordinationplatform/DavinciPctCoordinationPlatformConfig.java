@@ -1,5 +1,6 @@
 package com.lantanagroup.servers.davincipctcoordinationplatform;
 
+import ca.uhn.fhir.interceptor.api.IInterceptorService;
 import ca.uhn.fhir.jpa.starter.datainitializer.DataInitializer;
 import ca.uhn.fhir.jpa.topic.SubscriptionTopicConfig;
 import com.lantanagroup.common.*;
@@ -8,6 +9,7 @@ import ca.uhn.fhir.jpa.subscription.match.matcher.subscriber.SubscriptionMatchDe
 import ca.uhn.fhir.jpa.subscription.match.registry.SubscriptionRegistry;
 import ca.uhn.fhir.jpa.topic.SubscriptionTopicDispatcher;
 import ca.uhn.fhir.jpa.topic.SubscriptionTopicPayloadBuilder;
+import com.lantanagroup.notification.PctSubscriptionTopicProfileInterceptor;
 import com.lantanagroup.notification.SubscriptionWebSocketConfig;
 import com.lantanagroup.providers.GfeCoordinationRequestProvider;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -83,11 +85,12 @@ public class DavinciPctCoordinationPlatformConfig extends CommonConfig {
   }
 
   @Bean
-  public ServletRegistrationBean<RestfulServer> fhirServletRegistrationBean(RestfulServer restfulServer, SubscriptionNotificationInterceptor subscriptionNotificationInterceptor) {
+  public ServletRegistrationBean<RestfulServer> fhirServletRegistrationBean(RestfulServer restfulServer, SubscriptionNotificationInterceptor subscriptionNotificationInterceptor, IInterceptorService interceptorService) {
 
     restfulServer.registerInterceptor(new ResponseHighlighterInterceptor());
     restfulServer.registerInterceptor(new CapabilityStatementCustomizer(restfulServer.getFhirContext(), "davincipctcoordinationplatform"));
     restfulServer.registerInterceptor(new ProcessCustomizer(restfulServer.getFhirContext(), daoRegistry, "davincipctcoordinationplatform"));
+    interceptorService.registerInterceptor(new PctSubscriptionTopicProfileInterceptor());
     restfulServer.registerInterceptor(subscriptionNotificationInterceptor);
     restfulServer.registerProviders(
         new GfeRetrieveOperation(restfulServer.getFhirContext(), daoRegistry),
