@@ -517,13 +517,6 @@ public class GfeRetrieveOperation {
             }
             if (entryResource instanceof Claim && !isGFESummary((Claim) entryResource) && providerRef.isEmpty()) {
               Claim gfeClaim = (Claim) entryResource;
-              if (gfeClaim.hasInsurer() && gfeClaim.getInsurer().hasReference()) {
-                String insurerRef = gfeClaim.getInsurer().getReference();
-                if (uniqueAuthorRefs.add(insurerRef)) { // Add author(payer) only if not already added
-                  logger.info("DocRef Payer Author added: {}", insurerRef);
-                  docRef.addAuthor(new Reference(insurerRef));
-                }
-              }
               if (gfeClaim.hasProvider() && gfeClaim.getProvider().hasReference()) {
                 providerRef = gfeClaim.getProvider().getReference();
                 if (uniqueAuthorRefs.add(providerRef)) { // Add author only if not already added

@@ -278,7 +278,7 @@ public class ProcessCustomizer {
                             .setDisplay("Closed")));
                     try{
                         theTaskDao.update(task, theRequestDetails);
-                        logger.info("Updated task status to 'failed for task " + task.getId()+" due to processing error");
+                        logger.info("Updated task status to 'failed for task " + task.getId()+" due to "+message);
                     }catch(Exception e){
                         logger.error("Failed to update task " + task.getId(), e.getMessage());
                     }
