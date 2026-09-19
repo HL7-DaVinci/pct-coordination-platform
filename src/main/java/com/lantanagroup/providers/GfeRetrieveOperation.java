@@ -475,12 +475,10 @@ public class GfeRetrieveOperation {
         docRef.setDocStatus(DocumentReference.ReferredDocumentStatus.PRELIMINARY);
       }
 
-      docRef.setType(new CodeableConcept().addCoding(
-              new Coding("http://hl7.org/fhir/us/davinci-pct/CodeSystem/PCTDocumentTypeTemporaryTrialUse", "gfe-packet", null)
-      ));
+      docRef.setType(new CodeableConcept(new Coding("http://loinc.org", "111480-0", "Good faith estimate")));
       docRef.addCategory(
               new CodeableConcept().addCoding(
-                      new Coding("http://hl7.org/fhir/us/davinci-pct/CodeSystem/PCTDocumentCategoryTemporaryTrialUse", "estimate", null)
+                      new Coding("http://hl7.org/fhir/us/davinci-pct/CodeSystem/PCTDocumentTypeTemporaryTrialUse", "estimate", null)
               )
       );
 
@@ -584,12 +582,7 @@ public class GfeRetrieveOperation {
             .setValue("019283476"+coordinationTask.getIdElement().getIdPart())
     );
     gfeComposition.setStatus(Composition.CompositionStatus.FINAL);
-    gfeComposition.setType(new CodeableConcept().addCoding(
-            new Coding()
-                    .setSystem("http://hl7.org/fhir/us/davinci-pct/CodeSystem/PCTDocumentTypeTemporaryTrialUse")
-                    .setCode("gfe-packet")
-                    .setDisplay("GFE Packet")
-    ));
+    gfeComposition.setType(new CodeableConcept(new Coding("http://loinc.org", "111480-0", "Good faith estimate")));
     gfeComposition.addCategory(new CodeableConcept().addCoding(
             new Coding()
                     .setSystem("http://hl7.org/fhir/us/davinci-pct/CodeSystem/PCTDocumentTypeTemporaryTrialUse")
