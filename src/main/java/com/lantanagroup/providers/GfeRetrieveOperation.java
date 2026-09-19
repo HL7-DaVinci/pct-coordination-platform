@@ -99,7 +99,7 @@ public class GfeRetrieveOperation {
     Task requestTask = theTaskDao.read(theId, theRequestDetails);
 
     // The Task needs to be a gfe-coordination-task, Check the Task Code and verify it is the correct type, and if not, reject
-    if(requestTask.hasCode() && requestTask.getCode().hasCoding("http://hl7.org/fhir/us/davinci-pct/CodeSystem/PCTGFERequestTaskCSTemporaryTrialUse", "gfe-coordination-task"))
+    if(requestTask.hasCode() && requestTask.getCode().hasCoding("http://hl7.org/fhir/us/davinci-pct/CodeSystem/PCTGFERequestTypeCSTemporaryTrialUse", "gfe-coordination-task"))
     {
       Bundle responseBundle = createPacketBundle(requestTask, theRequestDetails);
 

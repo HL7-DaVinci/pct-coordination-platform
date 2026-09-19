@@ -315,11 +315,11 @@ public class ProcessCustomizer {
     }
 
     private boolean isCoordinationTask(Task task) {
-        return (task !=null && task.hasCode() && task.getCode().hasCoding("http://hl7.org/fhir/us/davinci-pct/CodeSystem/PCTGFERequestTaskCSTemporaryTrialUse", "gfe-coordination-task"));
+        return (task !=null && task.hasCode() && task.getCode().hasCoding("http://hl7.org/fhir/us/davinci-pct/CodeSystem/PCTGFERequestTypeCSTemporaryTrialUse", "gfe-coordination-task"));
     }
 
     private boolean isContributorTask(Task task) {
-        return (task !=null && task.hasCode() && task.getCode().hasCoding("http://hl7.org/fhir/us/davinci-pct/CodeSystem/PCTGFERequestTaskCSTemporaryTrialUse", "gfe-contributor-task"));
+        return (task !=null && task.hasCode() && task.getCode().hasCoding("http://hl7.org/fhir/us/davinci-pct/CodeSystem/PCTGFERequestTypeCSTemporaryTrialUse", "gfe-contributor-task"));
     }
 
   public List<String> getServerResources(String path, String pattern) {
