@@ -1,6 +1,6 @@
 package com.lantanagroup.notification;
 
-import ca.uhn.fhir.jpa.model.entity.StorageSettings;
+import ca.uhn.fhir.jpa.model.config.SubscriptionSettings;
 import ca.uhn.fhir.jpa.subscription.match.deliver.websocket.SubscriptionWebsocketHandler;
 import ca.uhn.fhir.jpa.subscription.match.deliver.websocket.WebsocketConnectionValidator;
 import org.slf4j.Logger;
@@ -19,15 +19,15 @@ public class SubscriptionWebSocketConfig implements WebSocketConfigurer {
 
     private static final Logger logger = LoggerFactory.getLogger(SubscriptionWebSocketConfig.class);
 
-    private final StorageSettings storageSettings;
+    private final SubscriptionSettings subscriptionSettings;
 
-    public SubscriptionWebSocketConfig(StorageSettings storageSettings) {
-        this.storageSettings = storageSettings;
+    public SubscriptionWebSocketConfig(SubscriptionSettings subscriptionSettings) {
+        this.subscriptionSettings = subscriptionSettings;
     }
 
     @Override
     public void registerWebSocketHandlers(WebSocketHandlerRegistry registry) {
-        String websocketPath = storageSettings.getWebsocketContextPath();
+        String websocketPath = subscriptionSettings.getWebsocketContextPath();
         logger.info("Registering WebSocket handler at path={}", websocketPath);
         registry.addHandler(subscriptionWebSocketHandler(), websocketPath)
                 .setAllowedOrigins("*");
