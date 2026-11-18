@@ -1,0 +1,10 @@
+apiVersion: 1
+providers:
+  - name: "pct-coordination-platform-server"
+    folder: "pct-coordination-platform-server"
+    type: file
+    updateIntervalSeconds: 30
+    allowUiUpdates: true
+    options:
+      path: /otel-lgtm/dashboards
+      foldersFromFilesStructure: false
