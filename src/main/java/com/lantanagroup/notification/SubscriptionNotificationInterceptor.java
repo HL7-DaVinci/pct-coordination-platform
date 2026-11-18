@@ -100,7 +100,7 @@ public class SubscriptionNotificationInterceptor {
         if (resource == null) return;
         String resourceType = resource.getClass().getSimpleName();
         String resourceId = resource.getIdElement() != null ? resource.getIdElement().getIdPart() : "unknown";
-        logger.info("STORAGE_PRECOMMIT_RESOURCE_DELETED: {} [ID: {}]", resourceType, resourceId);
+        logger.debug("STORAGE_PRECOMMIT_RESOURCE_DELETED: {} [ID: {}]", resourceType, resourceId);
         dispatchResourceNotification(resource, RestOperationTypeEnum.DELETE);
     }
 
